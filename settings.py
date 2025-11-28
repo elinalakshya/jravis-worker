@@ -1,3 +1,5 @@
+import os
+
 BACKEND_URL = "https://jravis-backend.onrender.com"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OUTPUT_DIR = "generated"
