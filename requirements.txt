@@ -2,3 +2,6 @@ openai>=1.40.0
 requests
 reportlab
 PyPDF2
+
+requests
+openai
