@@ -1,6 +1,6 @@
 from settings import PAYHIP_API_KEY
 
-def publish_payhip():
-    print("🛒 Publishing Payhip product... (mock)")
-    print("📦 File prepared.")
-    print("✅ Payhip upload complete.")
+def publish_payhip_product(task):
+    print("💾 Preparing Payhip product...")
+    print("📤 Manual upload required (no API).")
+    print("✔ Payhip product ready.")
