@@ -11,7 +11,7 @@ def send_report_email(summary_pdf_path, invoice_pdf_path, approval_token):
     msg = EmailMessage()
     msg["Subject"] = "JRAVIS Daily Report – Approval Needed"
     msg["From"] = EMAIL_USER
-    msg["To"] = EMAIL_TO
+    msg["To"] = nrveeresh327@gmail.com
 
     msg.set_content(
         f"""
@@ -56,4 +56,4 @@ Please approve within 10 minutes to continue automation.
         smtp.login(EMAIL_USER, EMAIL_PASS)
         smtp.send_message(msg)
 
-    print(f"📤 Email sent successfully to: {EMAIL_TO}")
+    print(f"📤 Email sent successfully to: {nrveeresh327@gmail.com}")
