@@ -1,8 +1,9 @@
 import requests
 from settings import OPENAI_API_KEY
 
-def publish_course():
-    print("🎓 Generating course outline...")
+def publish_course(task):
+    print("🎓 Preparing course lesson content...")
+    print("✔ Course content ready for upload.")
 
     body = {
         "model": "gpt-4.1",
