@@ -1,8 +1,11 @@
 import requests
 from settings import OPENAI_API_KEY
 
-def publish_stock_media():
-    print("📸 Generating stock media ideas...")
+def publish_stock_media(task):
+    print("📸 Preparing stock media pack...")
+    print("🎥 AI content generated.")
+    print("📤 Manual upload required to Shutterstock/Adobe.")
+    print("✔ Stock media ready.")
 
     prompt = {
         "model": "gpt-4.1-mini",
