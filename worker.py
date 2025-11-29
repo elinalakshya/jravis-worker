@@ -1,16 +1,23 @@
 import time
 import requests
-from settings import BACKEND_URL
+from settings import (
+    BACKEND_URL,
+    PRINTIFY_API_KEY,
+    MESHY_API_KEY,
+    GUMROAD_TOKEN,
+    PAYHIP_API_KEY,
+    OPENAI_API_KEY
+)
+
 from publisher_printify import publish_printify_product
-from publisher_gumroad import publish_gumroad_product
 from publisher_payhip import publish_payhip_product
-from publisher_meshy import publish_meshy_asset
+from publisher_gumroad import publish_gumroad_product
+from publisher_meshy import generate_meshy_assets
 
 
 def fetch_task():
-    """Fetch the next task from backend"""
     try:
-        r = requests.get(f"{BACKEND_URL}/task/next", timeout=10)
+        r = requests.get(f"{BACKEND_URL}/task/next")
         return r.json()
     except Exception as e:
         print("❌ Error fetching task:", e)
@@ -18,72 +25,50 @@ def fetch_task():
 
 
 def mark_done(task_id):
-    """Mark task finished"""
     try:
         requests.post(f"{BACKEND_URL}/task/done/{task_id}")
+        print(f"✔ Marked task as done: {task_id}")
     except:
-        pass
-
-
-def process_publish_task(task):
-    """Execute publishing tasks coming from JRAVIS-BRAIN"""
-    t = task["task"]
-    stream_type = t["type"]
-
-    print("\n==============================")
-    print(f"🚀 Executing Publish Task: {stream_type}")
-    print("==============================")
-
-    try:
-        if stream_type == "printify_pod":
-            result = publish_printify_product()
-            print("🛍 Printify Published:", result)
-
-        elif stream_type == "gumroad_upload":
-            result = publish_gumroad_product()
-            print("🛒 Gumroad Published:", result)
-
-        elif stream_type == "payhip_upload":
-            result = publish_payhip_product()
-            print("💰 Payhip Published:", result)
-
-        elif stream_type == "meshy_assets":
-            result = publish_meshy_asset()
-            print("🧱 Meshy Asset Generated:", result)
-
-        else:
-            print("⚠️ Unknown task type:", stream_type)
-            return
-
-    except Exception as e:
-        print("❌ Publish Failed:", e)
+        print("⚠ Could not mark task done")
 
 
 def run_worker():
-    """Main worker loop — runs 24/7"""
-    print("🔥 JRAVIS WORKER — PUBLISH MODE ACTIVE")
-    print("📡 Listening for publishing tasks from JRAVIS BRAIN…\n")
+    print("🚀 JRAVIS Worker Started — Waiting for tasks…")
 
     while True:
         task = fetch_task()
 
-        # If no tasks available
         if task.get("status") == "empty":
             time.sleep(2)
             continue
 
-        # If invalid task or backend returns error
         if "task" not in task:
             time.sleep(1)
             continue
 
-        # Process publish command
-        process_publish_task(task)
+        t = task["task"]
+        print(f"📥 Received Task: {t}")
 
-        # Mark task as completed
+        try:
+            if t["type"] == "printify_pod":
+                publish_printify_product(PRINTIFY_API_KEY)
+
+            elif t["type"] == "payhip_upload":
+                publish_payhip_product(PAYHIP_API_KEY)
+
+            elif t["type"] == "gumroad_upload":
+                publish_gumroad_product(GUMROAD_TOKEN)
+
+            elif t["type"] == "meshy_assets":
+                generate_meshy_assets(MESHY_API_KEY)
+
+            else:
+                print("⚠ Unknown task type:", t["type"])
+
+        except Exception as e:
+            print("❌ Worker processing error:", e)
+
         mark_done(task["id"])
-
-        # Small delay before next task
         time.sleep(1)
 
 
