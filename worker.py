@@ -1,39 +1,71 @@
 import time
 import requests
-from settings import (
-    BACKEND_URL,
-    PRINTIFY_API_KEY,
-    MESHY_API_KEY,
-    GUMROAD_TOKEN,
-    PAYHIP_API_KEY,
-    OPENAI_API_KEY
-)
+from settings import BACKEND_URL
 
-from publisher_printify import publish_printify_product
-from publisher_payhip import publish_payhip_product
-from publisher_gumroad import publish_gumroad_product
-from publisher_meshy import generate_meshy_assets
+# Import all publishers
+from publishers.printify_publisher import publish_printify
+from publishers.payhip_publisher import publish_payhip
+from publishers.gumroad_publisher import publish_gumroad
+from publishers.meshy_publisher import publish_meshy
+from publishers.affiliate_blog_publisher import publish_affiliate_blog
+from publishers.creative_market_publisher import publish_creative_market
+from publishers.stock_media_publisher import publish_stock_media
+from publishers.kdp_publisher import publish_kdp_book
+from publishers.youtube_publisher import publish_youtube_video
+from publishers.micro_niche_publisher import publish_micro_niche_site
+from publishers.shopify_publisher import publish_shopify_item
+from publishers.course_publisher import publish_course
 
 
 def fetch_task():
     try:
         r = requests.get(f"{BACKEND_URL}/task/next")
         return r.json()
-    except Exception as e:
-        print("❌ Error fetching task:", e)
+    except:
         return {"status": "error"}
 
 
 def mark_done(task_id):
     try:
         requests.post(f"{BACKEND_URL}/task/done/{task_id}")
-        print(f"✔ Marked task as done: {task_id}")
     except:
-        print("⚠ Could not mark task done")
+        pass
+
+
+def process_task(task):
+    t = task["task"]
+    task_type = t["type"]
+
+    print(f"📥 Received Task: {t}")
+
+    # Routing table for task → function
+    ROUTES = {
+        "printify_pod": publish_printify,
+        "payhip_upload": publish_payhip,
+        "gumroad_upload": publish_gumroad,
+        "meshy_assets": publish_meshy,
+        "affiliate_blog": publish_affiliate_blog,
+        "creative_market": publish_creative_market,
+        "stock_media": publish_stock_media,
+        "kdp_books": publish_kdp_book,
+        "youtube_automation": publish_youtube_video,
+        "micro_niche_sites": publish_micro_niche_site,
+        "shopify_digital_products": publish_shopify_item,
+        "course_automation": publish_course
+    }
+
+    if task_type not in ROUTES:
+        print(f"⚠ Unknown task type: {task_type}")
+        return
+
+    try:
+        ROUTES[task_type](t)
+    except Exception as e:
+        print("❌ Worker processing error:", str(e))
 
 
 def run_worker():
-    print("🚀 JRAVIS Worker Started — Waiting for tasks…")
+    print("🚀 JRAVIS Worker Started — Publishing Mode ACTIVE")
 
     while True:
         task = fetch_task()
@@ -42,33 +74,13 @@ def run_worker():
             time.sleep(2)
             continue
 
-        if "task" not in task:
-            time.sleep(1)
-            continue
-
-        t = task["task"]
-        print(f"📥 Received Task: {t}")
-
         try:
-            if t["type"] == "printify_pod":
-                publish_printify_product(PRINTIFY_API_KEY)
-
-            elif t["type"] == "payhip_upload":
-                publish_payhip_product(PAYHIP_API_KEY)
-
-            elif t["type"] == "gumroad_upload":
-                publish_gumroad_product(GUMROAD_TOKEN)
-
-            elif t["type"] == "meshy_assets":
-                generate_meshy_assets(MESHY_API_KEY)
-
-            else:
-                print("⚠ Unknown task type:", t["type"])
-
+            process_task(task)
         except Exception as e:
-            print("❌ Worker processing error:", e)
+            print("❌ Error:", str(e))
 
         mark_done(task["id"])
+        print(f"✔ Marked task as done: {task['id']}")
         time.sleep(1)
 
 
