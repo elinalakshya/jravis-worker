@@ -1,8 +1,10 @@
 import requests
 from settings import OPENAI_API_KEY
 
-def publish_kdp():
+def publish_kdp(task):
     print("📚 Creating KDP book outline...")
+    print("📤 Manual upload to Amazon KDP required.")
+    print("✔ KDP book ready.")
 
     body = {
         "model": "gpt-4.1",
