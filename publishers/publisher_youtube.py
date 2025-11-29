@@ -1,8 +1,10 @@
 import requests
 from settings import OPENAI_API_KEY
 
-def publish_youtube():
-    print("🎬 Creating YouTube short script...")
+def publish_youtube_video(task):
+    print("🎬 Creating automated YouTube script...")
+    print("📤 Manual upload required (YouTube upload API locked).")
+    print("✔ YouTube video script ready.")
 
     body = {
         "model": "gpt-4.1-mini",
