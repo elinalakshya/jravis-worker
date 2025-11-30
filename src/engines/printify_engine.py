@@ -1,22 +1,22 @@
-# printify_engine.py
 import logging
-from publishers.printify_publisher import upload_printify_product
+from publishers.printify_publisher import publish_printify_product
 
 logger = logging.getLogger(__name__)
 
-def generate_pod_design():
-    # JRAVIS AI design generator (placeholder)
-    return {
-        "title": "Minimalist Quote T-Shirt",
-        "description": "Aesthetic typography artwork.",
-        "tags": ["tshirt", "minimal", "quotes"],
-        "print_file_url": "https://yourcdn.com/designs/design1.png"
+def run_printify_engine():
+    logger.info("🟦 Running Printify POD Engine...")
+
+    # The engine generates a simple POD design concept
+    task = {
+        "type": "pod",
+        "title": "Minimalist Quote T-shirt",
+        "prompt": "Generate a printable quote design with clean typography",
+        "category": "apparel",
+        "tags": ["quote", "minimal", "typography"]
     }
 
-def run_printify_engine():
-    logger.info("🟦 Running Printify Engine...")
-
-    design = generate_pod_design()
-    result = upload_printify_product(design)
-
-    return result
+    try:
+        publish_printify_product(task)
+        logger.info("✅ Printify task sent successfully.")
+    except Exception as e:
+        logger.error(f"❌ Error in Printify engine: {e}")
