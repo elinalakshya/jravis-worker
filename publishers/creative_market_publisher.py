@@ -1,45 +1,46 @@
-# publishers/creative_market_publisher.py
+# Creative Market Publisher (Mock flow)
+# Creative Market does NOT provide a real upload API.
+# So JRAVIS will generate the digital asset + prepare ZIP + return info.
 
 import os
+import json
+import uuid
+from settings import OUTPUT_FOLDER, SAFE_OUTPUT
 from openai import OpenAI
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-OUTPUT_FOLDER = os.getenv("OUTPUT_FOLDER", "generated")
+client = OpenAI()
 
-def publish_creative_market(task):
+def publish_creative_market_item(task):
     """
-    Generates a digital template pack for Creative Market.
-    Upload must be manual because no public API exists.
+    Generates a digital template bundle and prepares it for manual upload.
+    JRAVIS cannot auto-upload to Creative Market (API unavailable).
     """
+
     print("🎨 Preparing Creative Market template bundle...")
 
-    try:
-        prompt = """
-        Create a premium Canva template bundle description.
-        Include:
-        - Title
-        - Features
-        - Use cases
-        - Editable elements
-        - Licensing note
-        """
+    # Generate template description
+    prompt = "Generate a premium design template description for Creative Market."
+    response = client.responses.create(model="gpt-4o-mini", input=prompt)
 
-        response = client.responses.create(
-            model="gpt-4.1-mini",
-            input=prompt
-        )
+    description = response.output_text or "Premium design asset for Creative Market."
 
-        text = response.output_text
+    # Safe output folder
+    out_dir = SAFE_OUTPUT("creative_market")
+    os.makedirs(out_dir, exist_ok=True)
 
-        os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-        path = f"{OUTPUT_FOLDER}/creative_market_template.txt"
+    file_id = str(uuid.uuid4())
+    asset_path = os.path.join(out_dir, f"creative_template_{file_id}.txt")
 
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(text)
+    # Save result
+    with open(asset_path, "w") as f:
+        f.write(description)
 
-        print("✨ Template bundle generated (manual upload needed).")
-        return "Creative Market pack ready"
+    result = {
+        "status": "ready_for_manual_upload",
+        "asset_file": asset_path,
+        "message": "Creative Market does not support automatic uploads. File is prepared."
+    }
 
-    except Exception as e:
-        print("❌ Creative Market Error:", e)
-        return "Creative Market generation failed"
+    print("✨ Creative Market bundle generated.")
+    print(f"📦 Saved at: {asset_path}")
+    return result
