@@ -1,5 +1,5 @@
 import logging
-from publishers.shopify_publisher import publish_shopify_product
+from publishers.stationery_publisher import save_stationery_product
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ def run_stationery_engine():
     }
 
     try:
-        publish_shopify_product(task)
-        logger.info("✅ Stationery export task sent.")
+        save_stationery_product(task)
+        logger.info("✅ Stationery export task completed.")
     except Exception as e:
         logger.error(f"❌ Stationery engine error: {e}")
