@@ -1,150 +1,86 @@
 import time
 import logging
-import sys
-import os
+import traceback
 
-# -------------------------------------------------------------------
-# Ensure /src is in Python path
-# -------------------------------------------------------------------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SRC_DIR = os.path.join(BASE_DIR, "src")
-
-if SRC_DIR not in sys.path:
-    sys.path.insert(0, SRC_DIR)
-
-# -------------------------------------------------------------------
-# Import Engines (correct path)
-# -------------------------------------------------------------------
-from src.engines.printify_engine import run_printify_engine
-from src.engines.shopify_engine import run_shopify_engine
-from src.engines.export_stationery_engine import run_stationery_engine
-from src.engines.gumroad_engine import run_gumroad_engine
-from src.engines.payhip_engine import run_payhip_engine
-from src.engines.newsletter_engine import run_newsletter_engine
-from src.engines.affiliate_funnel_engine import run_affiliate_funnel_engine
-from src.engines.auto_blogging_engine import run_auto_blogging_engine
-from src.engines.template_engine import run_template_engine
-from src.engines.pod_engine import run_pod_engine
-from src.engines.multi_market_engine import run_multi_market_engine
-from src.engines.stock_engine import run_stock_engine
-from src.engines.course_resell_engine import run_course_resell_engine
-from src.engines.newsletter_content_engine import run_newsletter_content_engine
-from src.engines.music_engine import run_music_engine
-# Webflow temporarily disabled until API key arrives
-# from src.engines.webflow_template_engine import run_webflow_template_engine
-
-# -------------------------------------------------------------------
-# Logger setup
-# -------------------------------------------------------------------
+# ==========================
+# Logging Setup
+# ==========================
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
+logger = logging.getLogger("JRAVIS Worker")
 
-logger = logging.getLogger("JRAVIS-WORKER")
+# ==========================
+# Import All 14 Engines
+# ==========================
+
+# OLD 6 STREAMS
+from src.engines.printify_engine import run_printify_engine
+from src.engines.shopify_engine import run_shopify_engine
+from src.engines.export_stationery_engine import run_export_stationery_engine
+from src.engines.gumroad_engine import run_gumroad_engine
+from src.engines.payhip_engine import run_payhip_engine
+from src.engines.webflow_template_engine import run_webflow_template_engine
+
+# NEW 8 FULLY AUTOMATED STREAMS
+from src.engines.auto_blogging_engine import run_auto_blogging_engine
+from src.engines.affiliate_funnel_engine import run_affiliate_funnel_engine
+from src.engines.pod_engine import run_pod_engine
+from src.engines.template_machine_engine import run_template_machine_engine
+from src.engines.multi_market_engine import run_multi_market_engine
+from src.engines.dropshipping_engine import run_dropshipping_engine
+from src.engines.newsletter_content_engine import run_newsletter_content_engine
+from src.engines.saas_engine import run_saas_engine
 
 
-# -------------------------------------------------------------------
-# Run all income engines once
-# -------------------------------------------------------------------
-def run_all_streams_once():
-    logger.info("🔥 Starting Full Engine Cycle...")
-
+# ==========================
+# SAFE RUNNER WRAPPER
+# ==========================
+def safe_run(title, func):
     try:
-        run_printify_engine()
+        logger.info(f"🟦 Running: {title}")
+        func()
+        logger.info(f"✅ Completed: {title}")
     except Exception as e:
-        logger.error(f"❌ Printify Engine Error: {e}")
-
-    try:
-        run_shopify_engine()
-    except Exception as e:
-        logger.error(f"❌ Shopify Engine Error: {e}")
-
-    try:
-        run_stationery_engine()
-    except Exception as e:
-        logger.error(f"❌ Stationery Engine Error: {e}")
-
-    try:
-        run_gumroad_engine()
-    except Exception as e:
-        logger.error(f"❌ Gumroad Engine Error: {e}")
-
-    try:
-        run_payhip_engine()
-    except Exception as e:
-        logger.error(f"❌ Payhip Engine Error: {e}")
-
-    try:
-    run_newsletter_engine()
-except Exception as e:
-    logger.error(f"❌ Newsletter Engine Error: {e}")
-
-try:
-    run_affiliate_funnel_engine()
-except Exception as e:
-    logger.error(f"❌ Affiliate Funnel Error: {e}")
-
-try:
-    run_auto_blogging_engine()
-except Exception as e:
-    logger.error(f"❌ Auto Blogging Engine Error: {e}")
-    
-try:
-    run_template_engine()
-except Exception as e:
-    logger.error(f"❌ Template Engine Error: {e}")
-
-try:
-    run_pod_engine()
-except Exception as e:
-    logger.error(f"❌ POD Engine Error: {e}")
-
-try:
-    run_multi_market_engine()
-except Exception as e:
-    logger.error(f"❌ Multi-Market Engine Error: {e}")
-
-try:
-    run_stock_engine()
-except Exception as e:
-    logger.error(f"❌ Stock Engine Error: {e}")
-
-try:
-    run_course_resell_engine()
-except Exception as e:
-    logger.error(f"❌ Course Resell Engine Error: {e}")
-
-try:
-    run_newsletter_content_engine()
-except Exception as e:
-    logger.error(f"❌ Newsletter Content Engine Error: {e}")
-
-try:
-    run_music_engine()
-except Exception as e:
-    logger.error(f"❌ Music Engine Error: {e}")
-
-    # Webflow disabled temporarily
-    logger.info("⏳ Webflow Template Engine: Idle (waiting for API key)")
-
-    logger.info("✅ Engine Cycle Completed.")
+        logger.error(f"❌ Error in {title}: {e}")
+        traceback.print_exc()
 
 
-# -------------------------------------------------------------------
-# Main Worker Loop
-# -------------------------------------------------------------------
-def start_worker():
+# ==========================
+# MAIN ENGINE LOOP
+# ==========================
+def main():
     logger.info("💓 JRAVIS Worker Started...")
+    logger.info("🔥 Running Full Engine Cycle...")
 
-    while True:
-        run_all_streams_once()
-        logger.info("⏳ Worker sleeping for 60 seconds...")
-        time.sleep(60)
+    # -------- OLD 6 STREAMS --------
+    safe_run("Printify POD Engine", run_printify_engine)
+    safe_run("Shopify Digital Products Engine", run_shopify_engine)
+    safe_run("Stationery Export Engine", run_export_stationery_engine)
+    safe_run("Gumroad Templates Engine", run_gumroad_engine)
+    safe_run("Payhip Templates Engine", run_payhip_engine)
+    safe_run("Webflow Template Engine", run_webflow_template_engine)
+
+    # -------- NEW 8 AUTOMATED STREAMS --------
+    safe_run("Auto Blogging Engine", run_auto_blogging_engine)
+    safe_run("Affiliate Funnel Engine", run_affiliate_funnel_engine)
+    safe_run("POD Mega Store Engine", run_pod_engine)
+    safe_run("Template Machine Engine", run_template_machine_engine)
+    safe_run("Multi-Market Uploader Engine", run_multi_market_engine)
+    safe_run("Dropshipping Engine", run_dropshipping_engine)
+    safe_run("Newsletter Content Engine", run_newsletter_content_engine)
+    safe_run("Micro-SaaS Engine", run_saas_engine)
+
+    logger.info("✨ ALL JRAVIS ENGINES COMPLETED SUCCESSFULLY ✨")
+    logger.info("⏳ Worker sleeping for 10 minutes...")
+
+    time.sleep(600)  # Run every 10 minutes (safe interval)
 
 
-# -------------------------------------------------------------------
-# Worker Entry Point
-# -------------------------------------------------------------------
+# ==========================
+# START WORKER
+# ==========================
 if __name__ == "__main__":
-    start_worker()
+    while True:
+        main()
