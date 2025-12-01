@@ -26,6 +26,7 @@ from src.engines.auto_blogging_engine import run_auto_blogging_engine
 from src.engines.template_engine import run_template_engine
 from src.engines.pod_engine import run_pod_engine
 from src.engines.multi_market_engine import run_multi_market_engine
+from src.engines.stock_engine import run_stock_engine
 # Webflow temporarily disabled until API key arrives
 # from src.engines.webflow_template_engine import run_webflow_template_engine
 
@@ -100,6 +101,11 @@ try:
     run_multi_market_engine()
 except Exception as e:
     logger.error(f"❌ Multi-Market Engine Error: {e}")
+
+try:
+    run_stock_engine()
+except Exception as e:
+    logger.error(f"❌ Stock Engine Error: {e}")
 
     # Webflow disabled temporarily
     logger.info("⏳ Webflow Template Engine: Idle (waiting for API key)")
