@@ -21,7 +21,9 @@ from src.engines.shopify_engine import run_shopify_engine
 from src.engines.export_stationery_engine import run_stationery_engine
 from src.engines.gumroad_engine import run_gumroad_engine
 from src.engines.payhip_engine import run_payhip_engine
-from src.engines.webflow_template_engine import run_webflow_template_engine
+# Webflow disabled until API key arrives
+# from src.engines.webflow_template_engine import run_webflow_template_engine
+
 
 # NEW 8 FULLY AUTOMATED STREAMS
 from src.engines.auto_blogging_engine import run_auto_blogging_engine
@@ -60,7 +62,9 @@ def main():
     safe_run("Stationery Export Engine", run_stationery_engine)
     safe_run("Gumroad Templates Engine", run_gumroad_engine)
     safe_run("Payhip Templates Engine", run_payhip_engine)
-    safe_run("Webflow Template Engine", run_webflow_template_engine)
+    # Webflow API not activated yet
+# safe_run("Webflow Template Engine", run_webflow_template_engine)
+
 
     # -------- NEW 8 AUTOMATED STREAMS --------
     safe_run("Auto Blogging Engine", run_auto_blogging_engine)
