@@ -20,6 +20,8 @@ from src.engines.shopify_engine import run_shopify_engine
 from src.engines.export_stationery_engine import run_stationery_engine
 from src.engines.gumroad_engine import run_gumroad_engine
 from src.engines.payhip_engine import run_payhip_engine
+from src.engines.newsletter_engine import run_newsletter_engine
+
 
 # Webflow temporarily disabled until API key arrives
 # from src.engines.webflow_template_engine import run_webflow_template_engine
@@ -65,6 +67,11 @@ def run_all_streams_once():
         run_payhip_engine()
     except Exception as e:
         logger.error(f"❌ Payhip Engine Error: {e}")
+
+    try:
+    run_newsletter_engine()
+except Exception as e:
+    logger.error(f"❌ Newsletter Engine Error: {e}")
 
     # Webflow disabled temporarily
     logger.info("⏳ Webflow Template Engine: Idle (waiting for API key)")
