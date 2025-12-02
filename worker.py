@@ -13,7 +13,7 @@ try:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     sys.path.append(BASE_DIR)
 
-    from jravis_config import JRAVIS_BRAIN
+    from src.jravis_config import JRAVIS_BRAIN
     print("🧠 JRAVIS_BRAIN loaded successfully.")
 except Exception as e:
     JRAVIS_BRAIN = {}
