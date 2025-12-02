@@ -1,90 +1,149 @@
-import time
 import logging
+import time
 import traceback
 
-# ==========================
-# Logging Setup
-# ==========================
+# ==========================================================
+# Load JRAVIS BRAIN
+# ==========================================================
+try:
+    from jravis_config import JRAVIS_BRAIN
+    print("🧠 JRAVIS_BRAIN loaded successfully.")
+except Exception as e:
+    JRAVIS_BRAIN = {}
+    print("⚠ WARNING: JRAVIS_BRAIN could not be loaded. Running in SAFE MODE.")
+    print(e)
+
+
+# ==========================================================
+# LOGGING SETUP
+# ==========================================================
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 logger = logging.getLogger("JRAVIS Worker")
 
-# ==========================
-# Import All 14 Engines
-# ==========================
 
-# OLD 6 STREAMS
-from src.engines.printify_engine import run_printify_engine
-from src.engines.shopify_engine import run_shopify_engine
-from src.engines.export_stationery_engine import run_stationery_engine
-from src.engines.gumroad_engine import run_gumroad_engine
-from src.engines.payhip_engine import run_payhip_engine
-# Webflow disabled until API key arrives
-# from src.engines.webflow_template_engine import run_webflow_template_engine
-
-
-# NEW 8 FULLY AUTOMATED STREAMS
-from src.engines.auto_blogging_engine import run_auto_blogging_engine
-from src.engines.affiliate_funnel_engine import run_affiliate_funnel_engine
-from src.engines.pod_engine import run_pod_engine
-from src.engines.template_machine_engine import run_template_machine_engine
-from src.engines.multi_market_engine import run_multi_market_engine
-from src.engines.dropshipping_engine import run_dropshipping_engine
-from src.engines.newsletter_content_engine import run_newsletter_content_engine
-from src.engines.saas_engine import run_saas_engine
-
-
-# ==========================
-# SAFE RUNNER WRAPPER
-# ==========================
-def safe_run(title, func):
+# ==========================================================
+# SAFE IMPORT WRAPPER
+# ==========================================================
+def try_import(path, func):
+    """
+    Safely imports engines. Returns None if missing.
+    """
     try:
-        logger.info(f"🟦 Running: {title}")
-        func()
-        logger.info(f"✅ Completed: {title}")
+        module = __import__(path, fromlist=[func])
+        return getattr(module, func)
     except Exception as e:
-        logger.error(f"❌ Error in {title}: {e}")
+        logger.error(f"❌ Failed to load {func} from {path}: {e}")
+        return None
+
+
+# ==========================================================
+# ENGINE IMPORTS (All 14 Streams)
+# ==========================================================
+
+ENGINE_MAP = {
+    # OLD 6 STREAMS
+    "Printify POD Engine":
+        try_import("src.engines.printify_engine", "run_printify_engine"),
+
+    "Shopify Digital Products Engine":
+        try_import("src.engines.shopify_engine", "run_shopify_engine"),
+
+    "Stationery Export Engine":
+        try_import("src.engines.export_stationery_engine", "run_stationery_engine"),
+
+    "Gumroad Templates Engine":
+        try_import("src.engines.gumroad_engine", "run_gumroad_engine"),
+
+    "Payhip Templates Engine":
+        try_import("src.engines.payhip_engine", "run_payhip_engine"),
+
+    # Webflow disabled until API is active
+    # "Webflow Template Engine":
+    #     try_import("src.engines.webflow_template_engine", "run_webflow_template_engine"),
+
+    # NEW 8 AUTOMATED STREAMS
+    "Auto Blogging Engine":
+        try_import("src.engines.auto_blogging_engine", "run_auto_blogging_engine"),
+
+    "Affiliate Funnel Engine":
+        try_import("src.engines.affiliate_funnel_engine", "run_affiliate_funnel_engine"),
+
+    "POD Mega Store Engine":
+        try_import("src.engines.pod_engine", "run_pod_engine"),
+
+    "Template Machine Engine":
+        try_import("src.engines.template_machine_engine", "run_template_machine_engine"),
+
+    "Multi-Market Uploader Engine":
+        try_import("src.engines.multi_market_engine", "run_multi_market_engine"),
+
+    "Dropshipping Engine":
+        try_import("src.engines.dropshipping_engine", "run_dropshipping_engine"),
+
+    "Newsletter Content Engine":
+        try_import("src.engines.newsletter_content_engine", "run_newsletter_content_engine"),
+
+    "Micro-SaaS Engine":
+        try_import("src.engines.saas_engine", "run_saas_engine"),
+}
+
+
+# ==========================================================
+# SAFETY RUNNER (Prevents CRASH)
+# ==========================================================
+def safe_run(title, func):
+    if func is None:
+        logger.warning(f"⚠ Skipping {title} — engine missing or inactive.")
+        return
+
+    try:
+        logger.info(f"🟦 Running → {title}")
+        func()
+        logger.info(f"✅ Completed → {title}")
+    except Exception as e:
+        logger.error(f"❌ ERROR in {title}: {e}")
         traceback.print_exc()
 
 
-# ==========================
-# MAIN ENGINE LOOP
-# ==========================
+# ==========================================================
+# APPLY JRAVIS BRAIN RULES
+# ==========================================================
+def enforce_brain():
+    logger.info("🧠 Enforcing JRAVIS_BRAIN rules...")
+
+    # Only Boss controls JRAVIS
+    if JRAVIS_BRAIN.get("identity", {}).get("owner") != "Boss":
+        logger.warning("⚠ Brain owner mismatch — switching to restricted SAFE MODE.")
+
+    # Additional rules can be activated here:
+    # - monthly target enforcement
+    # - priority stream selection
+    # - legal/ethical filters
+    # - automation mode
+
+
+# ==========================================================
+# MAIN LOOP
+# ==========================================================
 def main():
     logger.info("💓 JRAVIS Worker Started...")
-    logger.info("🔥 Running Full Engine Cycle...")
+    enforce_brain()
+    logger.info("🔥 Running Full 14-Engine Cycle...")
 
-    # -------- OLD 6 STREAMS --------
-    safe_run("Printify POD Engine", run_printify_engine)
-    safe_run("Shopify Digital Products Engine", run_shopify_engine)
-    safe_run("Stationery Export Engine", run_stationery_engine)
-    safe_run("Gumroad Templates Engine", run_gumroad_engine)
-    safe_run("Payhip Templates Engine", run_payhip_engine)
-    # Webflow API not activated yet
-# safe_run("Webflow Template Engine", run_webflow_template_engine)
+    for name, engine in ENGINE_MAP.items():
+        safe_run(name, engine)
+        time.sleep(1)  # safety delay
 
-
-    # -------- NEW 8 AUTOMATED STREAMS --------
-    safe_run("Auto Blogging Engine", run_auto_blogging_engine)
-    safe_run("Affiliate Funnel Engine", run_affiliate_funnel_engine)
-    safe_run("POD Mega Store Engine", run_pod_engine)
-    safe_run("Template Machine Engine", run_template_machine_engine)
-    safe_run("Multi-Market Uploader Engine", run_multi_market_engine)
-    safe_run("Dropshipping Engine", run_dropshipping_engine)
-    safe_run("Newsletter Content Engine", run_newsletter_content_engine)
-    safe_run("Micro-SaaS Engine", run_saas_engine)
-
-    logger.info("✨ ALL JRAVIS ENGINES COMPLETED SUCCESSFULLY ✨")
-    logger.info("⏳ Worker sleeping for 10 minutes...")
-
-    time.sleep(600)  # Run every 10 minutes (safe interval)
+    logger.info("✨ ALL ENGINES COMPLETED — Worker sleeping for 10 minutes...")
+    time.sleep(600)
 
 
-# ==========================
-# START WORKER
-# ==========================
+# ==========================================================
+# ENTRY POINT
+# ==========================================================
 if __name__ == "__main__":
     while True:
         main()
