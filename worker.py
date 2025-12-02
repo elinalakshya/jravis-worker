@@ -3,19 +3,22 @@ import time
 import traceback
 
 # ==========================================================
-# Load JRAVIS BRAIN
+# LOAD JRAVIS BRAIN SAFELY
 # ==========================================================
-try:
-    from jravis_config import JRAVIS_BRAIN
- import sys, os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import sys
+import os
 
 try:
+    # Add parent directory to Python path
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    sys.path.append(BASE_DIR)
+
     from jravis_config import JRAVIS_BRAIN
     print("🧠 JRAVIS_BRAIN loaded successfully.")
-except:
+except Exception as e:
     JRAVIS_BRAIN = {}
-    print("⚠ Could not load JRAVIS_BRAIN — SAFE MODE enabled.")
+    print("⚠ WARNING: Failed to load JRAVIS_BRAIN — running in SAFE MODE.")
+    print("Error:", e)
 
 # ==========================================================
 # LOGGING SETUP
