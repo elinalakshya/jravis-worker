@@ -120,8 +120,11 @@ def safe_run(title, func):
 def enforce_brain():
     logger.info("🧠 Enforcing JRAVIS_BRAIN rules...")
 
-    # Only Boss controls JRAVIS
-    if JRAVIS_BRAIN.get("identity", {}).get("owner") != "Boss":
+    # DEBUG PRINT: Show what value is actually in the config
+    owner = JRAVIS_BRAIN.get("identity", {}).get("owner")
+    logger.info(f"🔍 DEBUG — JRAVIS_BRAIN identity.owner = {owner}")
+
+    if owner != "Boss":
         logger.warning("⚠ Brain owner mismatch — switching to restricted SAFE MODE.")
 
     # Additional rules can be activated here:
