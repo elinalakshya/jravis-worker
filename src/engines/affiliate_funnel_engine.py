@@ -1,83 +1,63 @@
 import logging
-from src.engines.openai_helper import ask_openai
-from publishers.affiliate_funnel_publisher import save_funnel_page
+from openai import OpenAI
 
 logger = logging.getLogger("AffiliateFunnelEngine")
+client = OpenAI()
 
 
-def parse_title(html):
-    try:
-        start = html.lower().find("<h1>")
-        end = html.lower().find("</h1>")
-        if start != -1 and end != -1:
-            return html[start+4:end].strip()
-    except:
-        pass
-    return "Affiliate Funnel Page"
+def _ask_openai(user_prompt: str, system_prompt: str | None = None) -> str:
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": user_prompt})
+
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages,
+        temperature=0.7,
+    )
+    return resp.choices[0].message.content
 
 
 def run_affiliate_funnel_engine():
+    """
+    JRAVIS Affiliate Funnel Engine:
+    Builds one simple funnel page in HTML with placeholder AFFILIATE_LINK.
+    """
     logger.info("🟦 Running Affiliate Funnel Engine...")
 
+    system_prompt = (
+        "You are JRAVIS, a conversion-focused affiliate funnel designer. "
+        "You write clean HTML landing pages (no CSS, no JS), just structure and copy. "
+        "No fake claims, no medical/financial promises, fully compliant."
+    )
+
+    user_prompt = """
+    Create a single-page affiliate funnel in HTML.
+
+    Structure:
+    - <h1> Main headline
+    - Subheadline (strong emotional hook)
+    - Problem section
+    - Solution section (introduce product with placeholder AFFILIATE_LINK)
+    - 5 bullet-point benefits
+    - Social proof (3 short testimonials, names can be generic)
+    - FAQ section (3–5 Q&A)
+    - Final CTA button using AFFILIATE_LINK
+
+    Use only basic HTML tags: h1, h2, p, ul, li, a, div, span, etc.
+    Do NOT include <html>, <head>, <body> tags, only the inner content.
+    """
+
     try:
-        system_prompt = (
-            "You are JRAVIS, a high-ticket affiliate funnel builder. "
-            "Generate clean HTML only — persuasive, unique, legal."
-        )
+        html = _ask_openai(user_prompt=user_prompt, system_prompt=system_prompt)
+        logger.info("✅ Affiliate funnel HTML generated.")
+        logger.debug(f"Affiliate Funnel HTML:\n{html}")
 
-        user_prompt = """
-        Build a complete funnel page:
-        - <h1>Title</h1>
-        - Emotional hook
-        - Problem statement
-        - Product intro (use AFFILIATE_LINK)
-        - 5 benefits
-        - How it works (steps)
-        - Testimonials (fictional but realistic)
-        - CTA section using AFFILIATE_LINK
-        Output only clean HTML.
-        """
-
-        html = ask_openai(system_prompt, user_prompt)
-
-        if "JRAVIS_ERROR" in html:
-            logger.error("❌ Funnel generation failed.")
-            return
-
-        html = html.replace("AFFILIATE_LINK", "https://your-affiliate-link.com")
-        title = parse_title(html)
-
-        # Save funnel as file
-        file_data = {
-            "filename": f"{title.replace(' ', '_')}.html",
-            "content": html,
-            "type": "html"
-        }
-
-        # Save for deployment (optional publisher)
-        try:
-            save_funnel_page(title, html)
-        except:
-            logger.warning("⚠ Unable to save funnel page locally.")
-
-        output = {
-            "engine": "affiliate_funnels",
-            "status": "success",
-            "title": title,
-            "description": "High-quality affiliate funnel page.",
-            "html": html,
-            "text": None,
-            "keywords": ["affiliate", "funnel", "landing page"],
-            "files": [file_data],
-            "metadata": {
-                "category": "funnels",
-                "platform": "universal",
-                "affiliate_link": "https://your-affiliate-link.com"
-            }
-        }
-
-        logger.info("✅ Affiliate Funnel Generated Successfully")
-        return output
+        # 🔹 HOOK POINT:
+        # from publishers.affiliate_funnel_publisher import save_funnel_page
+        # save_funnel_page("Affiliate Funnel", html)
 
     except Exception as e:
         logger.error(f"❌ Affiliate Funnel Engine Error: {e}")
+        raise
