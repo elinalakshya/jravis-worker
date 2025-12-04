@@ -1,62 +1,83 @@
 import logging
-from openai import OpenAI
+from src.engines.openai_helper import ask_openai
 from publishers.affiliate_funnel_publisher import save_funnel_page
 
 logger = logging.getLogger("AffiliateFunnelEngine")
-client = OpenAI()
 
 
-def generate_affiliate_funnel():
-    """JRAVIS generates a complete high-income affiliate funnel."""
-    prompt = """
-    Create a complete affiliate funnel page for a high-ticket digital product.
-    Use this structure:
-    - Title
-    - Emotional hook
-    - Problem statement
-    - Product introduction (use placeholder AFFILIATE_LINK)
-    - 5 key benefits
-    - Step-by-step how it works
-    - Social proof (imaginary testimonials)
-    - Strong call to action with AFFILIATE_LINK
-    Format everything in clean HTML.
-    """
-
-    r = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    return r.choices[0].message["content"]
-
-
-def parse_title(html_content):
-    """Extracts title from AI-generated HTML."""
+def parse_title(html):
     try:
-        start = html_content.find("<h1>")
-        end = html_content.find("</h1>")
-        return html_content[start+4:end].strip()
+        start = html.lower().find("<h1>")
+        end = html.lower().find("</h1>")
+        if start != -1 and end != -1:
+            return html[start+4:end].strip()
     except:
-        return "Affiliate_Funnel_Page"
+        pass
+    return "Affiliate Funnel Page"
 
 
 def run_affiliate_funnel_engine():
-    """Main engine that generates and saves funnels."""
-    logger.info("📣 Running Affiliate Funnel Engine...")
+    logger.info("🟦 Running Affiliate Funnel Engine...")
 
     try:
-        content = generate_affiliate_funnel()
-        title = parse_title(content)
-
-        # Replace placeholder with actual affiliate URL later
-        final_html = content.replace(
-            "AFFILIATE_LINK",
-            "https://your-affiliate-link.com"
+        system_prompt = (
+            "You are JRAVIS, a high-ticket affiliate funnel builder. "
+            "Generate clean HTML only — persuasive, unique, legal."
         )
 
-        save_funnel_page(title, final_html)
+        user_prompt = """
+        Build a complete funnel page:
+        - <h1>Title</h1>
+        - Emotional hook
+        - Problem statement
+        - Product intro (use AFFILIATE_LINK)
+        - 5 benefits
+        - How it works (steps)
+        - Testimonials (fictional but realistic)
+        - CTA section using AFFILIATE_LINK
+        Output only clean HTML.
+        """
 
-        logger.info("✅ Affiliate Funnel Created Successfully")
+        html = ask_openai(system_prompt, user_prompt)
+
+        if "JRAVIS_ERROR" in html:
+            logger.error("❌ Funnel generation failed.")
+            return
+
+        html = html.replace("AFFILIATE_LINK", "https://your-affiliate-link.com")
+        title = parse_title(html)
+
+        # Save funnel as file
+        file_data = {
+            "filename": f"{title.replace(' ', '_')}.html",
+            "content": html,
+            "type": "html"
+        }
+
+        # Save for deployment (optional publisher)
+        try:
+            save_funnel_page(title, html)
+        except:
+            logger.warning("⚠ Unable to save funnel page locally.")
+
+        output = {
+            "engine": "affiliate_funnels",
+            "status": "success",
+            "title": title,
+            "description": "High-quality affiliate funnel page.",
+            "html": html,
+            "text": None,
+            "keywords": ["affiliate", "funnel", "landing page"],
+            "files": [file_data],
+            "metadata": {
+                "category": "funnels",
+                "platform": "universal",
+                "affiliate_link": "https://your-affiliate-link.com"
+            }
+        }
+
+        logger.info("✅ Affiliate Funnel Generated Successfully")
+        return output
 
     except Exception as e:
         logger.error(f"❌ Affiliate Funnel Engine Error: {e}")
