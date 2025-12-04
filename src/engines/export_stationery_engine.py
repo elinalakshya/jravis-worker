@@ -1,21 +1,12 @@
 import logging
-from publishers.stationery_publisher import save_stationery_product
+logger = logging.getLogger("StationeryExportEngine")
 
-logger = logging.getLogger(__name__)
 
 def run_stationery_engine():
-    logger.info("🟦 Running Stationery Export Engine...")
+    logger.info("⚪ Stationery Export Stream is inactive — skipping execution.")
 
-    task = {
-        "type": "stationery",
-        "title": "Hardcover Premium Notebook",
-        "description": "AI-generated export stationery listing",
-        "specs": ["Hardcover", "90 GSM paper", "A5 size"],
-        "price": 8.99
+    return {
+        "engine": "stationery_export",
+        "status": "inactive",
+        "message": "This stream is disabled in JRAVIS Option1 mode."
     }
-
-    try:
-        save_stationery_product(task)
-        logger.info("✅ Stationery export task completed.")
-    except Exception as e:
-        logger.error(f"❌ Stationery engine error: {e}")
