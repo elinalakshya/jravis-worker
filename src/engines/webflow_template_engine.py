@@ -1,19 +1,12 @@
 import logging
-from publishers.webflow_publisher import publish_webflow_template
+logger = logging.getLogger("WebflowTemplateEngine")
 
-logger = logging.getLogger(__name__)
 
 def run_webflow_template_engine():
-    logger.info("🟦 Webflow Template Engine is waiting for API key...")
+    logger.info("⚪ Webflow Template Stream is inactive — skipping execution.")
 
-    task = {
-        "type": "webflow-template",
-        "title": "Business Portfolio Theme",
-        "html": "<div>Template layout</div>",
-        "slug": "business-portfolio"
+    return {
+        "engine": "webflow_templates",
+        "status": "inactive",
+        "message": "This stream is disabled in JRAVIS Option1 mode."
     }
-
-    try:
-        publish_webflow_template(task)
-    except:
-        logger.info("⏳ Webflow API key not available yet.")
