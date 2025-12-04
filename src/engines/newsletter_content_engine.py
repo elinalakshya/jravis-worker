@@ -1,66 +1,61 @@
 import logging
-from openai import OpenAI
-from publishers.newsletter_content_publisher import save_newsletter_issue
+from src.engines.openai_helper import ask_openai
 
-logger = logging.getLogger("NewsletterContentEngine")
-client = OpenAI()
-
-
-def generate_newsletter_issue():
-    """AI generates a monetized newsletter issue."""
-    prompt = """
-    Create a full newsletter issue about AI, automation, business, or productivity.
-    Include:
-    - Title (H1)
-    - Strong intro
-    - 3 major sections
-    - One sponsored section placeholder (SPONSOR_LINK)
-    - 2 affiliate recommendation spots (AFFILIATE_LINK)
-    - Conclusion + CTA
-
-    Output:
-    1) HTML formatted version
-    2) Markdown version
-    """
-
-    r = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    content = r.choices[0].message["content"]
-
-    # Separate HTML & Markdown
-    if "</html>" in content:
-        html = content.split("</html>")[0] + "</html>"
-        md = content.split("</html>")[1].strip()
-    else:
-        html = content
-        md = content
-
-    # Extract title
-    title = "Newsletter_Issue"
-    if "<h1>" in html:
-        title = html.split("<h1>")[1].split("</h1>")[0].strip()
-
-    # Replace placeholders
-    html = html.replace("AFFILIATE_LINK", "https://your-affiliate-link.com")
-    md = md.replace("AFFILIATE_LINK", "https://your-affiliate-link.com")
-
-    html = html.replace("SPONSOR_LINK", "https://your-sponsor-link.com")
-    md = md.replace("SPONSOR_LINK", "https://your-sponsor-link.com")
-
-    return title, html, md
+logger = logging.getLogger("NewsletterEngine")
 
 
 def run_newsletter_content_engine():
-    logger.info("📰 Newsletter Content Engine Running...")
+    logger.info("🟦 Running Newsletter Monetization Engine...")
 
     try:
-        title, html, md = generate_newsletter_issue()
-        save_newsletter_issue(title, html, md)
+        system_prompt = (
+            "You are JRAVIS, a newsletter expert. "
+            "Create engaging, monetization-friendly newsletters that follow ethical rules."
+        )
 
-        logger.info("✅ Newsletter Issue Generated")
+        user_prompt = """
+        Create a monetizable newsletter with:
+        - Engaging title
+        - Short intro
+        - 3 valuable sections
+        - A recommended product with placeholder AFFILIATE_LINK
+        - CTA at the end
+        Format output as clean HTML.
+        """
+
+        html = ask_openai(system_prompt, user_prompt)
+
+        if "JRAVIS_ERROR" in html:
+            logger.error("❌ Newsletter generation failed.")
+            return
+
+        # Replace placeholder link
+        html = html.replace("AFFILIATE_LINK", "https://your-newsletter-link.com")
+
+        file_data = {
+            "filename": "newsletter.html",
+            "content": html,
+            "type": "html"
+        }
+
+        output = {
+            "engine": "newsletter_monetization",
+            "status": "success",
+            "title": "Newsletter Content",
+            "description": "JRAVIS-generated monetizable newsletter.",
+            "html": html,
+            "text": None,
+            "keywords": ["newsletter", "email", "monetization"],
+            "files": [file_data],
+            "metadata": {
+                "category": "newsletter",
+                "platform": "email",
+                "cta_link": "https://your-newsletter-link.com"
+            }
+        }
+
+        logger.info("✅ Newsletter Generated Successfully")
+        return output
 
     except Exception as e:
-        logger.error(f"❌ Newsletter Content Engine Error: {e}")
+        logger.error(f"❌ Newsletter Engine Error: {e}")
