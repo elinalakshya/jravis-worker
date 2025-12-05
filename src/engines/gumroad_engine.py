@@ -1,64 +1,47 @@
 import logging
 from openai import OpenAI
-from src.engines.openai_helper import ask_openai
 from publishers.gumroad_publisher import save_gumroad_product
 
-logger = logging.getLogger("GumroadEngine")
-
-MULTIPLIER = 5   # 5X products per cycle
-
 client = OpenAI()
-
-SEO_KEYWORDS = [
-    "AI template", "business planner", "startup toolkit", "productivity",
-    "Notion template", "digital download", "finance tracker", "resume template",
-    "printable planner", "marketing kit"
-]
-
-
-def build_prompt():
-    return f"""
-    Generate {MULTIPLIER} high-quality Gumroad digital products.
-
-    For each product return:
-    - SEO optimized title (using: {', '.join(SEO_KEYWORDS)})
-    - 2-paragraph description
-    - 10 SEO tags
-    - File placeholder: TEMPLATE_FILE
-    - Category: digital templates
-
-    Format output as JSON list:
-    [
-      {{
-        "title": "...",
-        "description": "...",
-        "tags": [...],
-        "file": "TEMPLATE_FILE"
-      }}
-    ]
-    """
+logger = logging.getLogger("GumroadEngine")
 
 
 def run_gumroad_engine():
+    """Generates a Gumroad digital product + saves it for upload."""
     logger.info("🟦 Running Gumroad Template Engine...")
 
     try:
-        response = ask_openai(
-            system_prompt="You generate premium digital templates.",
-            user_prompt=build_prompt()
+        prompt = """
+        Create a complete Gumroad digital product template.
+        Structure:
+        - Product Title
+        - Short Description
+        - Features (list)
+        - Who it's for
+        - What's included
+        - Pricing suggestion
+        - Clean HTML layout ready for upload
+        """
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
         )
 
-        import json
-        products = json.loads(response)
+        html = response.choices[0].message.content
 
-        for p in products:
-            save_gumroad_product(
-                title=p["title"],
-                description=p["description"],
-                tags=p["tags"]
-            )
+        # extract product title from <h1>
+        title_start = html.find("<h1>")
+        title_end = html.find("</h1>")
 
-        logger.info(f"✅ Gumroad product batch created: {len(products)} items")
+        if title_start != -1 and title_end != -1:
+            title = html[title_start + 4:title_end].strip()
+        else:
+            title = "Gumroad_Product"
+
+        save_gumroad_product(title, html)
+
+        logger.info("✅ Gumroad Template generated successfully.")
 
     except Exception as e:
         logger.error(f"❌ Gumroad Engine Error: {e}")
