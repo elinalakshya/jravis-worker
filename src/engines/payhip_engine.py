@@ -1,30 +1,30 @@
-import logging
-from src.engines.openai_helper import ask_openai
-from publishers.payhip_publisher import save_payhip_product
+# File: src/engines/payhip_engine.py
+from typing import Dict, Any
+from src.openai_helper import openai_helper
 
-logger = logging.getLogger("PayhipEngine")
-
-def run_payhip_engine():
-    logger.info("🟦 Running Payhip Template Engine...")
-
-    system_prompt = """
-    You are JRAVIS — expert template creator for Payhip.
-    Create a clean digital product template.
-    Include:
-    - Product title
-    - Description
-    - Included files
-    - Usage instructions
-    - Who it’s for
+def run_payhip_engine() -> Dict[str, Any]:
     """
+    Generates a Payhip product listing with descriptions and value points.
+    """
+    system_prompt = (
+        "You create high-converting digital products for Payhip."
+    )
 
-    user_prompt = "Generate a digital template suitable for Payhip buyers."
+    user_prompt = (
+        "Create a Payhip product package including:\n"
+        "- Title\n"
+        "- Overview\n"
+        "- Benefit List (8 points)\n"
+        "- Who this is for\n"
+        "- What's included\n"
+        "- Short sales pitch"
+    )
 
-    try:
-        content = ask_openai(system_prompt, user_prompt)
+    result = openai_helper.generate_text(system_prompt, user_prompt)
 
-        save_payhip_product(content)
+    payload = {
+        "title": "Payhip Product",
+        "content": result
+    }
 
-        logger.info("✅ Payhip Template Created Successfully")
-    except Exception as e:
-        logger.error(f"❌ Payhip Engine Error: {e}")
+    return openai_helper.format_payload("payhip", payload)
