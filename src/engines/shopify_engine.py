@@ -1,29 +1,29 @@
-import logging
-from src.engines.openai_helper import ask_openai
-from publishers.shopify_publisher import save_shopify_product
+# File: src/engines/shopify_engine.py
+from typing import Dict, Any
+from src.openai_helper import openai_helper
 
-logger = logging.getLogger("ShopifyDigitalEngine")
-
-def run_shopify_engine():
-    logger.info("🟦 Running Shopify Digital Products Engine...")
-
-    system_prompt = """
-    Create a digital product for Shopify.
-    Include:
-    - Product title
-    - Long product description
-    - Features
-    - File contents
-    - Ideal buyer profile
+def run_shopify_engine() -> Dict[str, Any]:
     """
+    Produces a Shopify product listing with SEO and conversion optimization.
+    """
+    system_prompt = "You are a Shopify product listing optimization specialist."
 
-    user_prompt = "Generate a digital download product description."
+    user_prompt = (
+        "Create a full Shopify product listing:\n"
+        "- Product title\n"
+        "- Short description\n"
+        "- Full description\n"
+        "- 10 features\n"
+        "- SEO keywords\n"
+        "- Suggested tags\n"
+        "- Marketing angle"
+    )
 
-    try:
-        content = ask_openai(system_prompt, user_prompt)
+    result = openai_helper.generate_text(system_prompt, user_prompt)
 
-        save_shopify_product(content)
+    payload = {
+        "type": "shopify_product",
+        "content": result
+    }
 
-        logger.info("✅ Shopify Digital Product Created Successfully")
-    except Exception as e:
-        logger.error(f"❌ Shopify Engine Error: {e}")
+    return openai_helper.format_payload("shopify", payload)
