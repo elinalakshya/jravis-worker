@@ -1,65 +1,64 @@
 import logging
 from openai import OpenAI
+from src.engines.openai_helper import ask_openai
+from publishers.gumroad_publisher import save_gumroad_product
 
 logger = logging.getLogger("GumroadEngine")
+
+MULTIPLIER = 5   # 5X products per cycle
+
 client = OpenAI()
 
+SEO_KEYWORDS = [
+    "AI template", "business planner", "startup toolkit", "productivity",
+    "Notion template", "digital download", "finance tracker", "resume template",
+    "printable planner", "marketing kit"
+]
 
-def _ask_openai(user_prompt: str, system_prompt: str | None = None) -> str:
-    """
-    Small internal helper so all calls are consistent and safe.
-    """
-    messages = []
-    if system_prompt:
-        messages.append({"role": "system", "content": system_prompt})
-    messages.append({"role": "user", "content": user_prompt})
 
-    resp = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=messages,
-        temperature=0.7,
-    )
-    return resp.choices[0].message.content
+def build_prompt():
+    return f"""
+    Generate {MULTIPLIER} high-quality Gumroad digital products.
+
+    For each product return:
+    - SEO optimized title (using: {', '.join(SEO_KEYWORDS)})
+    - 2-paragraph description
+    - 10 SEO tags
+    - File placeholder: TEMPLATE_FILE
+    - Category: digital templates
+
+    Format output as JSON list:
+    [
+      {{
+        "title": "...",
+        "description": "...",
+        "tags": [...],
+        "file": "TEMPLATE_FILE"
+      }}
+    ]
+    """
 
 
 def run_gumroad_engine():
-    """
-    JRAVIS Phase-1: Create 1–2 high-quality digital products 
-    for Gumroad (templates, planners, checklists, etc.).
-    """
     logger.info("🟦 Running Gumroad Template Engine...")
 
-    system_prompt = (
-        "You are JRAVIS, an AI product creator for Gumroad. "
-        "You must only generate legal, ethical, original content. "
-        "Focus on high-demand digital templates (planners, trackers, business tools). "
-        "No plagiarism. No copyrighted brands. No risky topics."
-    )
-
-    user_prompt = """
-    Create a **single** high-value Gumroad digital product.
-
-    Output in valid JSON with keys:
-    - title: short, catchy product title
-    - description: 2–3 paragraph sales copy
-    - features: bullet list (5–8 bullet points)
-    - target_audience: 1–2 sentence description
-    - file_structure: what pages/sections the template will contain
-    - suggested_price: price in USD (as a number)
-
-    The product must be unique, useful, and sellable.
-    """
-
     try:
-        content = _ask_openai(user_prompt=user_prompt, system_prompt=system_prompt)
-        logger.info("✅ Gumroad product spec generated.")
-        logger.debug(f"Gumroad Product JSON:\n{content}")
+        response = ask_openai(
+            system_prompt="You generate premium digital templates.",
+            user_prompt=build_prompt()
+        )
 
-        # 🔹 HOOK POINT:
-        # Here you can call a publisher like:
-        # from publishers.gumroad_publisher import publish_gumroad_product
-        # publish_gumroad_product(content)
+        import json
+        products = json.loads(response)
+
+        for p in products:
+            save_gumroad_product(
+                title=p["title"],
+                description=p["description"],
+                tags=p["tags"]
+            )
+
+        logger.info(f"✅ Gumroad product batch created: {len(products)} items")
 
     except Exception as e:
         logger.error(f"❌ Gumroad Engine Error: {e}")
-        raise
