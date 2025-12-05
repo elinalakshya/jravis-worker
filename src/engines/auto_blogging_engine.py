@@ -1,29 +1,31 @@
-import logging
-from src.engines.openai_helper import ask_openai
-from publishers.blog_publisher import save_blog_article
+# File: src/engines/auto_blogging_engine.py
+from typing import Dict, Any
+from src.openai_helper import openai_helper
 
-logger = logging.getLogger("AutoBlogEngine")
-
-def run_auto_blogging_engine():
-    logger.info("🟦 Running Auto Blogging Engine...")
-
-    system_prompt = """
-    You are JRAVIS — expert SEO article generator.
-    Create:
-    - Blog title
-    - SEO meta description
-    - 800–1200 word long article
-    - Headings and subheadings
-    - Keywords section
+def run_auto_blogging_engine() -> Dict[str, Any]:
     """
+    Generates a long-form SEO blog article.
+    """
+    system_prompt = (
+        "You are an SEO expert and content strategist. Produce a rank-worthy blog post."
+    )
 
-    user_prompt = "Write an SEO blog post on a trending topic."
+    user_prompt = (
+        "Create a blog article with:\n"
+        "- SEO Title\n"
+        "- Meta Description\n"
+        "- Introduction\n"
+        "- 6 Detailed Sections with headers\n"
+        "- Conclusion\n"
+        "- 5 SEO keywords\n"
+        "Tone: informative, expert, easy to read."
+    )
 
-    try:
-        content = ask_openai(system_prompt, user_prompt)
+    result = openai_helper.generate_text(system_prompt, user_prompt, tokens=1600)
 
-        save_blog_article(content)
+    payload = {
+        "type": "blog_article",
+        "content": result
+    }
 
-        logger.info("✅ Auto-blog article generated.")
-    except Exception as e:
-        logger.error(f"❌ Auto Blogging Error: {e}")
+    return openai_helper.format_payload("auto_blogging", payload)
