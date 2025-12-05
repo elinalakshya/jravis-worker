@@ -1,17 +1,17 @@
 import os
 import logging
 
-logger = logging.getLogger("GumroadPublisher")
+logger = logging.getLogger("PayhipPublisher")
 
-OUTPUT_DIR = "output/gumroad/"
+OUTPUT_DIR = "output/payhip/"
 
 # Ensure directory exists
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-def save_gumroad_product(title, description, tags):
+def save_payhip_product(title, description, tags):
     """
-    Saves Gumroad product metadata locally.
-    Later JRAVIS uploader will publish via API/web UI automation.
+    Saves Payhip product metadata locally.
+    JRAVIS will publish using uploader automation later.
     """
     try:
         safe_title = title.replace(" ", "_").replace("/", "_")
@@ -26,7 +26,7 @@ def save_gumroad_product(title, description, tags):
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(content)
 
-        logger.info(f"📄 Gumroad product saved locally: {filepath}")
+        logger.info(f"📄 Payhip product saved locally: {filepath}")
 
     except Exception as e:
-        logger.error(f"❌ Failed to save Gumroad product: {e}")
+        logger.error(f"❌ Failed to save Payhip product: {e}")
