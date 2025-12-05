@@ -1,28 +1,27 @@
-import logging
-from src.engines.openai_helper import ask_openai
-from publishers.template_machine_publisher import save_template_machine_file
+# File: src/engines/template_machine_engine.py
+from typing import Dict, Any
+from src.openai_helper import openai_helper
 
-logger = logging.getLogger("TemplateMachineEngine")
-
-def run_template_machine_engine():
-    logger.info("🟦 Running Template Machine Engine...")
-
-    system_prompt = """
-    Generate a ready-to-use editable template for any business task.
-    Output:
-    - Title
-    - Use Case
-    - Step-by-step instructions
-    - Editable text blocks
+def run_template_machine_engine() -> Dict[str, Any]:
     """
+    Generates templates, frameworks, scripts, SOPs.
+    """
+    system_prompt = "You produce actionable templates, SOPs, and frameworks."
 
-    user_prompt = "Create a universal editable template for entrepreneurs."
+    user_prompt = (
+        "Generate a reusable template pack with:\n"
+        "- Framework title\n"
+        "- Step-by-step instructions\n"
+        "- Checklist\n"
+        "- Use cases\n"
+        "- Example outputs"
+    )
 
-    try:
-        content = ask_openai(system_prompt, user_prompt)
+    result = openai_helper.generate_text(system_prompt, user_prompt)
 
-        save_template_machine_file(content)
+    payload = {
+        "type": "template_pack",
+        "content": result
+    }
 
-        logger.info("✅ Template Machine blueprints generated.")
-    except Exception as e:
-        logger.error(f"❌ Template Machine Engine Error: {e}")
+    return openai_helper.format_payload("template_machine", payload)
