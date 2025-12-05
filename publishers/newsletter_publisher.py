@@ -1,66 +1,50 @@
 import os
-import requests
-import logging
+import datetime
+from pydrive.auth import GoogleAuth
+from pydrive.drive import GoogleDrive
 
-logger = logging.getLogger("NewsletterPublisher")
+MASTER_FOLDER = "12mvSBr6Z-tAUQgwIO2LBZegP20eGAYh9"
 
-BREVO_API_KEY = os.getenv("BREVO_API_KEY")
-BREVO_LIST_ID = os.getenv("BREVO_LIST_ID")
+def get_drive():
+    gauth = GoogleAuth()
+    gauth.LocalWebserverAuth()
+    return GoogleDrive(gauth)
 
-BREVO_BASE = "https://api.brevo.com/v3"
+def ensure_folder(drive, parent_id, name):
+    query = f"'{parent_id}' in parents and trashed=false and mimeType='application/vnd.google-apps.folder' and title='{name}'"
+    file_list = drive.ListFile({'q': query}).GetList()
+    if file_list:
+        return file_list[0]['id']
 
+    folder = drive.CreateFile({
+        'title': name,
+        'mimeType': 'application/vnd.google-apps.folder',
+        'parents': [{'id': parent_id}]
+    })
+    folder.Upload()
+    return folder['id']
 
-def add_contact_to_list(email):
-    """
-    Add a contact to the Brevo List ID.
-    If the contact already exists, Brevo will ignore duplicates safely.
-    """
-    url = f"{BREVO_BASE}/contacts"
-    headers = {
-        "accept": "application/json",
-        "content-type": "application/json",
-        "api-key": BREVO_API_KEY
-    }
+def save_newsletter(title, html_content):
+    drive = get_drive()
 
-    payload = {
-        "email": email,
-        "listIds": [int(BREVO_LIST_ID)]
-    }
+    today = datetime.datetime.now()
+    month_name = today.strftime("%B %Y")
 
-    try:
-        r = requests.post(url, json=payload, headers=headers, timeout=10)
-        logger.info(f"[Brevo Add Contact] {r.status_code}: {r.text}")
-        return r.json()
-    except Exception as e:
-        logger.error(f"❌ Error adding contact to Brevo list: {e}")
-        return None
+    month_folder = ensure_folder(drive, MASTER_FOLDER, month_name)
+    stream_folder = ensure_folder(drive, month_folder, "newsletter")
 
+    filename = f"{title}.html"
+    file_path = f"/tmp/{filename}"
 
-def send_newsletter_email(subject, html_content):
-    """
-    Sends a newsletter email to the entire Brevo List ID.
-    """
-    url = f"{BREVO_BASE}/smtp/email"
-    headers = {
-        "accept": "application/json",
-        "content-type": "application/json",
-        "api-key": BREVO_API_KEY
-    }
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(html_content)
 
-    payload = {
-        "sender": {
-            "name": "Lakshya Global Newsletter",
-            "email": "no-reply@lakshya.global"
-        },
-        "subject": subject,
-        "htmlContent": html_content,
-        "listIds": [int(BREVO_LIST_ID)]
-    }
+    gfile = drive.CreateFile({
+        'title': filename,
+        'parents': [{'id': stream_folder}]
+    })
 
-    try:
-        r = requests.post(url, json=payload, headers=headers, timeout=10)
-        logger.info(f"[Brevo Send Email] {r.status_code}: {r.text}")
-        return r.json()
-    except Exception as e:
-        logger.error(f"❌ Error sending Brevo email: {e}")
-        return None
+    gfile.SetContentFile(file_path)
+    gfile.Upload()
+
+    return gfile['id']
