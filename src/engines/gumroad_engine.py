@@ -14,7 +14,7 @@ def run_gumroad_engine() -> Dict[str, Any]:
     user_prompt = (
         "Generate a full digital product package with:\n"
         "- Title\n"
-        - Strong Hook\n"
+        "- Strong Hook\n"
         "- Product Description\n"
         "- 10 Key Features\n"
         "- Target Audience\n"
@@ -27,7 +27,7 @@ def run_gumroad_engine() -> Dict[str, Any]:
 
     payload = {
         "title": "Gumroad Product",
-        "content": result
+        "content": result,
     }
 
     return openai_helper.format_payload("gumroad", payload)
