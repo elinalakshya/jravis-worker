@@ -1,7 +1,7 @@
-# ------------------------------------------------------
-# JRAVIS WORKER v4 — Batch 8 Ready
-# Handles: tasks → intelligence → sync → n8n push
-# ------------------------------------------------------
+# -----------------------------------------------------------
+# JRAVIS WORKER — Autonomous Execution Engine
+# Handles Streams, Intelligence, Memory, Factory, n8n Sync
+# -----------------------------------------------------------
 
 import time
 import requests
@@ -9,101 +9,135 @@ import random
 import hashlib
 import os
 
-BACKEND = os.getenv("BACKEND_URL")
-N8N_WEBHOOK = os.getenv("N8N_WEBHOOK_URL")
-SECRET = os.getenv("JRAVIS_LOCK")
-N8N_SECRET = os.getenv("N8N_WEBHOOK_SECRET")
+BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com")
+N8N_WEBHOOK = os.getenv("N8N_WEBHOOK_URL", "")
+N8N_SECRET = os.getenv("N8N_WEBHOOK_SECRET", "")
+
+LOCK = os.getenv("JRAVIS_LOCK", "JRV2040_LOCKED_KEY_001")
 
 
-# ------------------------------------------------------
-# UNIQUE CONTENT GENERATOR
-# ------------------------------------------------------
+# -----------------------------------------------------------
+# SAFE UNIQUE CONTENT GENERATOR
+# -----------------------------------------------------------
 def generate_unique_content():
     topics = [
-        "wealth creation", "global business", "ai automation",
-        "productivity", "mission 2040", "ethical income"
+        "automation", "digital wealth", "scaling", "templates",
+        "funnels", "ai growth", "mindset", "mission2040",
     ]
-    idea = random.choice(topics)
-    tag = hashlib.sha256(str(random.random()).encode()).hexdigest()[:10]
-    return f"Insight on {idea}: automation + consistency wins. #{tag}"
+
+    topic = random.choice(topics)
+    base = f"Insight on {topic}: Focus on consistency, automation and clean scaling."
+
+    stamp = hashlib.sha256(str(random.random()).encode()).hexdigest()[:12]
+    return f"{base}\n#{topic}_{stamp}"
 
 
-# ------------------------------------------------------
-# DECISION LOGIC
-# ------------------------------------------------------
-def make_decision():
-    if random.random() <= 0.60:
-        return {
-            "mode": "robo",
-            "action": "create_content",
-            "content": generate_unique_content(),
-        }
-    else:
-        return {
-            "mode": "human",
-            "action": random.choice(["scroll", "review", "observe"]),
-            "delay": round(random.uniform(2.5, 7.0), 2)
-        }
+# -----------------------------------------------------------
+# TASK DECISION ENGINE (human + robo safe)
+# -----------------------------------------------------------
+def human_mode():
+    actions = ["scroll", "read", "like", "save", "observe"]
+    return {"mode": "human", "action": random.choice(actions), "delay": random.uniform(2, 6)}
 
 
-# ------------------------------------------------------
-# SEND TASK TO BACKEND
-# ------------------------------------------------------
-def push_task(task):
+def robo_mode():
+    return {
+        "mode": "robo",
+        "action": "create_content",
+        "count": random.randint(2, 4),
+        "content": generate_unique_content(),
+    }
+
+
+def brain_decision():
+    return robo_mode() if random.random() < 0.65 else human_mode()
+
+
+# -----------------------------------------------------------
+# BACKEND TASK QUEUE
+# -----------------------------------------------------------
+def queue_task(task):
     try:
-        return requests.post(
-            f"{BACKEND}/api/task/new",
-            json={"task": task, "lock": SECRET}
-        ).json()
+        r = requests.post(f"{BACKEND}/api/task/new",
+                          json={"task": task, "lock": LOCK},
+                          timeout=20)
+        return r.json()
     except:
-        return {"error": "backend unreachable"}
+        return None
 
 
-# ------------------------------------------------------
-# PUSH DATA TO n8n (NEW)
-# ------------------------------------------------------
-def push_to_n8n(data):
+# -----------------------------------------------------------
+# Intelligence Worker Trigger
+# -----------------------------------------------------------
+def run_intelligence():
     try:
-        return requests.post(
-            N8N_WEBHOOK,
-            json=data,
-            headers={"X-JRAVIS-SECRET": N8N_SECRET},
-            timeout=10
-        ).status_code
+        r = requests.get(f"{BACKEND}/api/intelligence/run", timeout=20)
+        return r.json()
     except:
-        return "failed"
+        return None
 
 
-# ------------------------------------------------------
+# -----------------------------------------------------------
+# Batch 9 — Factory Engine Trigger
+# -----------------------------------------------------------
+def run_factory():
+    try:
+        r = requests.get(f"{BACKEND}/api/factory/generate", timeout=20)
+        return r.json()
+    except:
+        return None
+
+
+# -----------------------------------------------------------
+# Sync to n8n Factory Webhook (optional, safe mode)
+# -----------------------------------------------------------
+def push_to_n8n(payload):
+    if not N8N_WEBHOOK:
+        return None
+
+    payload["secret"] = N8N_SECRET
+
+    try:
+        r = requests.post(N8N_WEBHOOK, json=payload, timeout=20)
+        return r.status_code
+    except:
+        return None
+
+
+# -----------------------------------------------------------
 # MAIN WORKER LOOP
-# ------------------------------------------------------
+# -----------------------------------------------------------
 def main():
     print("[JRAVIS] Worker Booting...")
 
     while True:
-        print("\n--- NEW WORKER CYCLE ---")
+        print("\n============================")
+        print("🔥 JRAVIS WORKER — NEW CYCLE")
+        print("============================")
 
-        # 1. Decision
-        decision = make_decision()
-        print("🧠 Decision:", decision)
+        # 1. Brain Decision
+        task = brain_decision()
+        print("🧠 Decision:", task)
 
-        # 2. Push task to backend
-        backend_response = push_task(decision)
-        print("📥 Backend Response:", backend_response)
+        # 2. Send to Backend
+        q = queue_task(task)
+        print("📥 Task Queue Result:", q)
 
-        # 3. Push sync event to n8n
-        sync = {
-            "event": "worker_cycle",
-            "decision": decision,
-            "backend": backend_response
-        }
-        n8n_response = push_to_n8n(sync)
-        print("🔗 N8N Sync:", n8n_response)
+        # 3. Intelligence Worker
+        intel = run_intelligence()
+        print("🤖 Intelligence Worker:", intel)
 
-        # 4. Sleep
-        print("⏳ Sleeping 5 minutes...")
-        time.sleep(300)
+        # 4. Factory System (Batch 9)
+        factory = run_factory()
+        print("🏭 Factory Output:", factory)
 
+        # 5. Sync to n8n
+        if factory:
+            print("🔗 Syncing Factory Batch to n8n...")
+            push_to_n8n(factory)
+
+        print("⏳ Sleeping 60 seconds…")
+        time.sleep(60)  # (You selected every 1 minute)
 
 if __name__ == "__main__":
     main()
