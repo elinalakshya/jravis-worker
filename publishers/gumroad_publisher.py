@@ -1,32 +1,46 @@
 import os
 import logging
 
-logger = logging.getLogger("PayhipPublisher")
+logger = logging.getLogger("GumroadPublisher")
 
-OUTPUT_DIR = "output/payhip/"
+OUTPUT_DIR = "output/gumroad_products"
 
-# Ensure directory exists
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-def save_payhip_product(title, description, tags):
+def ensure_output_dir():
+    """Creates the folder if it doesn't exist."""
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+
+def slugify(text):
+    """Converts product title into a safe filename."""
+    return (
+        text.lower()
+        .replace(" ", "_")
+        .replace("/", "_")
+        .replace("\\", "_")
+        .replace("-", "_")
+        .strip()
+    )
+
+
+def save_gumroad_product(title: str, html_content: str):
     """
-    Saves Payhip product metadata locally.
-    JRAVIS will publish using uploader automation later.
+    Saves generated Gumroad product HTML into /output/gumroad_products/.
+    This is the function JRAVIS worker imports.
     """
+    ensure_output_dir()
+
+    filename = f"{slugify(title)}.html"
+    path = os.path.join(OUTPUT_DIR, filename)
+
     try:
-        safe_title = title.replace(" ", "_").replace("/", "_")
-        filepath = os.path.join(OUTPUT_DIR, f"{safe_title}.txt")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(html_content)
 
-        content = (
-            f"TITLE:\n{title}\n\n"
-            f"DESCRIPTION:\n{description}\n\n"
-            f"TAGS:\n{', '.join(tags)}\n"
-        )
-
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(content)
-
-        logger.info(f"📄 Payhip product saved locally: {filepath}")
+        logger.info(f"📦 Gumroad product saved → {path}")
+        return path
 
     except Exception as e:
-        logger.error(f"❌ Failed to save Payhip product: {e}")
+        logger.error(f"❌ Failed to save Gumroad product: {e}")
+        raise
