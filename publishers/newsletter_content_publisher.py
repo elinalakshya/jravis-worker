@@ -1,18 +1,40 @@
+# File: publishers/newsletter_content_publisher.py
 import os
+import json
+import time
+from typing import Dict, Any
 
-OUTPUT_DIR = "output/newsletters"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+OUTPUT_DIR = "/opt/render/project/src/output/newsletter"
 
-def save_newsletter_issue(title: str, html: str, md: str):
-    safe_title = title.replace(" ", "_").replace("/", "_")
+def ensure_output_dir():
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    html_path = os.path.join(OUTPUT_DIR, f"{safe_title}.html")
-    md_path = os.path.join(OUTPUT_DIR, f"{safe_title}.md")
+def publish_newsletter(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Newsletter content publisher (simulated).
+    Produces JSON ready for email automation (Beehiiv, Mailchimp, etc.)
+    """
+    ensure_output_dir()
 
-    with open(html_path, "w", encoding="utf-8") as f:
-        f.write(html)
+    timestamp = int(time.time())
+    filename = f"{OUTPUT_DIR}/newsletter_{timestamp}.json"
 
-    with open(md_path, "w", encoding="utf-8") as f:
-        f.write(md)
+    try:
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=4)
 
-    return html_path, md_path
+        return {
+            "publisher": "newsletter",
+            "success": True,
+            "message": "Newsletter publish simulated",
+            "file": filename,
+            "data": payload
+        }
+
+    except Exception as e:
+        return {
+            "publisher": "newsletter",
+            "success": False,
+            "error": str(e)
+        }
