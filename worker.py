@@ -1,126 +1,104 @@
-import logging
+# File: worker.py
+# JRAVIS Unified Worker - Advanced Production Version
+
 import time
 import traceback
-import sys
-import os
 
-# ==========================================================
-# LOAD JRAVIS BRAIN
-# ==========================================================
-try:
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    sys.path.append(BASE_DIR)
-    from src.jravis_config import JRAVIS_BRAIN
-    print("🧠 JRAVIS_BRAIN loaded successfully.")
-except Exception as e:
-    JRAVIS_BRAIN = {}
-    print("⚠ WARNING: Failed to load JRAVIS_BRAIN — running SAFE MODE.")
-    print("Error:", e)
+# IMPORT ALL ENGINES
+from src.engines.gumroad_engine import run_gumroad_engine
+from src.engines.payhip_engine import run_payhip_engine
+from src.engines.auto_blogging_engine import run_auto_blogging_engine
+from src.engines.newsletter_content_engine import run_newsletter_content_engine
+from src.engines.affiliate_funnel_engine import run_affiliate_funnel_engine
+from src.engines.shopify_engine import run_shopify_engine
+from src.engines.template_machine_engine import run_template_machine_engine
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
-)
-logger = logging.getLogger("JRAVIS Worker")
+# IMPORT ALL PUBLISHERS
+from publishers.gumroad_publisher import publish_gumroad
+from publishers.payhip_publisher import publish_payhip
+from publishers.blog_publisher import publish_blog
+from publishers.newsletter_content_publisher import publish_newsletter
+from publishers.affiliate_funnel_publisher import publish_affiliate_funnel
+from publishers.shopify_publisher import publish_shopify
+from publishers.template_machine_publisher import publish_template_machine
 
-# ==========================================================
-# ENGINE IMPORT SAFETY WRAPPER
-# ==========================================================
-def try_import(module_path, func_name):
+
+def log(msg: str):
+    """Simple logger function (Render-friendly)."""
+    print(f"[JRAVIS] {msg}", flush=True)
+
+
+def safe_run(name: str, func, *args, **kwargs):
+    """
+    Runs any function safely.
+    If it crashes, we return a JSON error payload.
+    """
     try:
-        module = __import__(module_path, fromlist=[func_name])
-        return getattr(module, func_name)
+        log(f"Running {name}...")
+        result = func(*args, **kwargs)
+        log(f"{name} completed.")
+        return {"success": True, "payload": result}
     except Exception as e:
-        logger.error(f"❌ Failed to load {func_name} from {module_path}: {e}")
-        return None
-
-# ==========================================================
-# 7 ACTIVE STREAM ENGINES
-# ==========================================================
-ENGINE_MAP = {
-    "Gumroad Template Engine":
-        try_import("src.engines.gumroad_engine", "run_gumroad_engine"),
-
-    "Payhip Template Engine":
-        try_import("src.engines.payhip_engine", "run_payhip_engine"),
-
-    "Template Machine Engine":
-        try_import("src.engines.template_machine_engine", "run_template_machine_engine"),
-
-    "Auto Blogging Engine":
-        try_import("src.engines.auto_blogging_engine", "run_auto_blogging_engine"),
-
-    "Newsletter Monetization Engine":
-        try_import("src.engines.newsletter_content_engine", "run_newsletter_content_engine"),
-
-    "Affiliate Funnel Engine":
-        try_import("src.engines.affiliate_funnel_engine", "run_affiliate_funnel_engine"),
-
-    "Shopify Digital Products Engine":
-        try_import("src.engines.shopify_engine", "run_shopify_engine"),
-}
-
-# ==========================================================
-# INACTIVE STREAMS (placeholders only)
-# ==========================================================
-INACTIVE_ENGINES = [
-    "Printify POD",
-    "Stationery Export",
-    "Webflow Templates",
-    "POD Mega Stores",
-    "Multi-Market Uploaders",
-    "Dropshipping Store",
-    "Micro-SaaS"
-]
-
-# ==========================================================
-# SAFE RUNNER
-# ==========================================================
-def safe_run(title, engine_func):
-    if engine_func is None:
-        logger.warning(f"⚠ {title} engine missing.")
-        return
-
-    try:
-        logger.info(f"🟦 Running → {title}")
-        engine_func()
-        logger.info(f"✅ Completed → {title}")
-    except Exception as e:
-        logger.error(f"❌ ERROR in {title}: {e}")
         traceback.print_exc()
+        return {
+            "success": False,
+            "error": str(e),
+            "trace": traceback.format_exc(),
+        }
 
-# ==========================================================
-# ENFORCE BRAIN RULES
-# ==========================================================
-def enforce_brain():
-    owner = JRAVIS_BRAIN.get("identity", {}).get("owner")
-    logger.info(f"🧠 Checking identity… owner = {owner}")
 
-    if owner != "Boss":
-        logger.warning("⚠ Wrong owner — switching to SAFE MODE.")
+def run_all_streams():
+    """
+    MASTER RUNNER
+    Runs each engine → sends to matching publisher → logs output.
+    """
 
-# ==========================================================
-# MAIN LOOP
-# ==========================================================
-def main():
-    logger.info("💓 JRAVIS Worker Started...")
-    enforce_brain()
+    log("JRAVIS Worker Started.")
+    start_time = time.time()
 
-    logger.info("🔥 Running Full Automation Cycle (7 Streams)...")
+    all_results = {}
 
-    # Run ACTIVE ENGINES only
-    for name, engine in ENGINE_MAP.items():
-        safe_run(name, engine)
-        time.sleep(1)
+    # ENGINE → PUBLISHER PIPELINES
+    pipelines = [
+        ("gumroad", run_gumroad_engine, publish_gumroad),
+        ("payhip", run_payhip_engine, publish_payhip),
+        ("auto_blogging", run_auto_blogging_engine, publish_blog),
+        ("newsletter", run_newsletter_content_engine, publish_newsletter),
+        ("affiliate_funnel", run_affiliate_funnel_engine, publish_affiliate_funnel),
+        ("shopify", run_shopify_engine, publish_shopify),
+        ("template_machine", run_template_machine_engine, publish_template_machine),
+    ]
 
-    # Log inactive engines
-    for name in INACTIVE_ENGINES:
-        logger.info(f"⚪ {name} Engine is inactive — skipping.")
+    # EXECUTE PIPELINES
+    for stream_name, engine_fn, publisher_fn in pipelines:
+        log(f"=== {stream_name.upper()} STREAM START ===")
 
-    logger.info("✨ Cycle complete. Sleeping for 10 minutes...")
-    time.sleep(600)
+        # Run engine safely
+        engine_output = safe_run(f"{stream_name} engine", engine_fn)
+        if not engine_output["success"]:
+            all_results[stream_name] = {
+                "success": False,
+                "step": "engine",
+                "error": engine_output["error"],
+            }
+            continue
+
+        payload = engine_output["payload"]["data"]
+
+        # Run publisher safely
+        publish_output = safe_run(f"{stream_name} publisher", publisher_fn, payload)
+        all_results[stream_name] = publish_output
+
+        log(f"=== {stream_name.upper()} STREAM END ===\n")
+
+    total_time = round(time.time() - start_time, 2)
+    log(f"JRAVIS Worker Finished. Total time: {total_time}s")
+
+    return all_results
 
 
 if __name__ == "__main__":
-    while True:
-        main()
+    log("JRAVIS Worker Booting...")
+    results = run_all_streams()
+    log("Final Output:")
+    print(results)
