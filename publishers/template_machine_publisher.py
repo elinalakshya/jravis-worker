@@ -1,32 +1,49 @@
 import os
-import logging
+import datetime
+from pydrive.auth import GoogleAuth
+from pydrive.drive import GoogleDrive
 
-logger = logging.getLogger("TemplateMachinePublisher")
+MASTER_FOLDER = "12mvSBr6Z-tAUQgwIO2LBZegP20eGAYh9"
 
-OUTPUT = "output/template_machines"
-os.makedirs(OUTPUT, exist_ok=True)
+def get_drive():
+    gauth = GoogleAuth()
+    gauth.LocalWebserverAuth()
+    return GoogleDrive(gauth)
 
-def save_template_pack(title, files):
-    """
-    Saves a complete template pack:
-    - Business templates
-    - Notion templates
-    - Resumes
-    - Planners
-    """
-    safe = title.replace(" ", "_").replace("/", "_")
-    folder = os.path.join(OUTPUT, safe)
-    os.makedirs(folder, exist_ok=True)
+def ensure_folder(drive, parent_id, name):
+    query = f"'{parent_id}' in parents and trashed=false and mimeType='application/vnd.google-apps.folder' and title='{name}'"
+    file_list = drive.ListFile({'q': query}).GetList()
+    if file_list:
+        return file_list[0]['id']
 
-    try:
-        for filename, content in files.items():
-            path = os.path.join(folder, filename)
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(content)
+    folder = drive.CreateFile({
+        'title': name,
+        'mimeType': 'application/vnd.google-apps.folder',
+        'parents': [{'id': parent_id}]
+    })
+    folder.Upload()
+    return folder['id']
 
-        logger.info(f"📦 Template Machine Pack Saved: {folder}")
-        return folder
+def save_template_machine(title, json_data):
+    drive = get_drive()
 
-    except Exception as e:
-        logger.error(f"❌ Error saving template machine pack: {e}")
-        return None
+    today = datetime.datetime.now()
+    month_name = today.strftime("%B %Y")
+
+    month_folder = ensure_folder(drive, MASTER_FOLDER, month_name)
+    stream_folder = ensure_folder(drive, month_folder, "template_machine")
+
+    filename = f"{title}.json"
+    file_path = f"/tmp/{filename}"
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(json_data)
+
+    file = drive.CreateFile({
+        'title': filename,
+        'parents': [{'id': stream_folder}]
+    })
+    file.SetContentFile(file_path)
+    file.Upload()
+
+    return file['id']
