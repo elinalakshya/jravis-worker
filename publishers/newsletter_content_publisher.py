@@ -1,32 +1,18 @@
 import os
-import logging
 
-logger = logging.getLogger("NewsletterContentPublisher")
+OUTPUT_DIR = "output/newsletters"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-OUTPUT = "output/newsletter_issues"
-os.makedirs(OUTPUT, exist_ok=True)
-
-
-def save_newsletter_issue(title, html, md):
-    """Saves newsletter issue in both HTML + Markdown formats."""
+def save_newsletter_issue(title: str, html: str, md: str):
     safe_title = title.replace(" ", "_").replace("/", "_")
-    folder = os.path.join(OUTPUT, safe_title)
-    os.makedirs(folder, exist_ok=True)
 
-    try:
-        # Save HTML
-        html_path = os.path.join(folder, "newsletter.html")
-        with open(html_path, "w", encoding="utf-8") as f:
-            f.write(html)
+    html_path = os.path.join(OUTPUT_DIR, f"{safe_title}.html")
+    md_path = os.path.join(OUTPUT_DIR, f"{safe_title}.md")
 
-        # Save Markdown
-        md_path = os.path.join(folder, "newsletter.md")
-        with open(md_path, "w", encoding="utf-8") as f:
-            f.write(md)
+    with open(html_path, "w", encoding="utf-8") as f:
+        f.write(html)
 
-        logger.info(f"📧 Newsletter Issue Saved: {folder}")
-        return folder
+    with open(md_path, "w", encoding="utf-8") as f:
+        f.write(md)
 
-    except Exception as e:
-        logger.error(f"❌ Error saving newsletter content: {e}")
-        return None
+    return html_path, md_path
