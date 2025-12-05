@@ -1,36 +1,30 @@
 import logging
 import time
 import traceback
-import requests
 import sys
 import os
 
 # ==========================================================
-# LOAD JRAVIS BRAIN SAFELY
+# LOAD JRAVIS BRAIN
 # ==========================================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(BASE_DIR)
-
 try:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    sys.path.append(BASE_DIR)
     from src.jravis_config import JRAVIS_BRAIN
     print("🧠 JRAVIS_BRAIN loaded successfully.")
 except Exception as e:
     JRAVIS_BRAIN = {}
-    print("⚠ WARNING: Failed to load JRAVIS_BRAIN — SAFE MODE ACTIVE")
+    print("⚠ WARNING: Failed to load JRAVIS_BRAIN — running SAFE MODE.")
     print("Error:", e)
 
-# ==========================================================
-# LOGGING
-# ==========================================================
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 logger = logging.getLogger("JRAVIS Worker")
 
-
 # ==========================================================
-# SAFE IMPORT WRAPPER
+# ENGINE IMPORT SAFETY WRAPPER
 # ==========================================================
 def try_import(module_path, func_name):
     try:
@@ -40,12 +34,10 @@ def try_import(module_path, func_name):
         logger.error(f"❌ Failed to load {func_name} from {module_path}: {e}")
         return None
 
-
 # ==========================================================
-# ENGINE LIST (14 Streams)
+# 7 ACTIVE STREAM ENGINES
 # ==========================================================
 ENGINE_MAP = {
-    # ACTIVE STREAMS (7)
     "Gumroad Template Engine":
         try_import("src.engines.gumroad_engine", "run_gumroad_engine"),
 
@@ -66,110 +58,69 @@ ENGINE_MAP = {
 
     "Shopify Digital Products Engine":
         try_import("src.engines.shopify_engine", "run_shopify_engine"),
-
-    # INACTIVE STREAMS (7)
-    "Printify POD Engine":
-        None,
-    "Stationery Export Engine":
-        None,
-    "Webflow Template Engine":
-        None,
-    "POD Mega Store Engine":
-        None,
-    "Multi-Marketplace Upload Engine":
-        None,
-    "Dropshipping Engine":
-        None,
-    "Micro-SaaS Engine":
-        None,
 }
 
-
-ACTIVE_ENGINES = [
-    "Gumroad Template Engine",
-    "Payhip Template Engine",
-    "Template Machine Engine",
-    "Auto Blogging Engine",
-    "Newsletter Monetization Engine",
-    "Affiliate Funnel Engine",
-    "Shopify Digital Products Engine"
+# ==========================================================
+# INACTIVE STREAMS (placeholders only)
+# ==========================================================
+INACTIVE_ENGINES = [
+    "Printify POD",
+    "Stationery Export",
+    "Webflow Templates",
+    "POD Mega Stores",
+    "Multi-Market Uploaders",
+    "Dropshipping Store",
+    "Micro-SaaS"
 ]
 
-
 # ==========================================================
-# SEND ERROR ALERT TO N8N
+# SAFE RUNNER
 # ==========================================================
-def send_error_to_n8n(engine, error_msg, stack):
-    try:
-        requests.post(
-            "https://lakshyaglobal.app.n8n.cloud/webhook/jravis_error_alert",
-            json={
-                "engine": engine,
-                "error": error_msg,
-                "stacktrace": stack
-            },
-            timeout=5
-        )
-        logger.info("📨 Sent error to n8n alert workflow.")
-    except Exception as alert_error:
-        logger.error(f"⚠ Failed to send alert to n8n: {alert_error}")
-
-
-# ==========================================================
-# SAFE ENGINE RUNNER
-# ==========================================================
-def safe_run(title, func):
-    if title not in ACTIVE_ENGINES:
-        logger.info(f"⚪ {title} is inactive — skipping.")
-        return
-
-    if func is None:
+def safe_run(title, engine_func):
+    if engine_func is None:
         logger.warning(f"⚠ {title} engine missing.")
         return
 
     try:
         logger.info(f"🟦 Running → {title}")
-        func()
+        engine_func()
         logger.info(f"✅ Completed → {title}")
-
     except Exception as e:
         logger.error(f"❌ ERROR in {title}: {e}")
-        send_error_to_n8n(title, str(e), traceback.format_exc())
-
+        traceback.print_exc()
 
 # ==========================================================
-# APPLY JRAVIS BRAIN RULES
+# ENFORCE BRAIN RULES
 # ==========================================================
 def enforce_brain():
-    logger.info("🧠 Applying JRAVIS_BRAIN rules...")
     owner = JRAVIS_BRAIN.get("identity", {}).get("owner")
-    logger.info(f"Identity check → owner = {owner}")
+    logger.info(f"🧠 Checking identity… owner = {owner}")
 
     if owner != "Boss":
-        logger.warning("⚠ Owner mismatch → SAFE MODE")
-    # Additional rules can be applied later
-
+        logger.warning("⚠ Wrong owner — switching to SAFE MODE.")
 
 # ==========================================================
 # MAIN LOOP
 # ==========================================================
-def main_cycle():
-    logger.info("🔥 Running Full 14-Engine Automation Cycle...")
+def main():
+    logger.info("💓 JRAVIS Worker Started...")
+    enforce_brain()
 
+    logger.info("🔥 Running Full Automation Cycle (7 Streams)...")
+
+    # Run ACTIVE ENGINES only
     for name, engine in ENGINE_MAP.items():
         safe_run(name, engine)
         time.sleep(1)
 
-    logger.info("✨ Cycle complete. Sleeping 10 minutes...")
+    # Log inactive engines
+    for name in INACTIVE_ENGINES:
+        logger.info(f"⚪ {name} Engine is inactive — skipping.")
+
+    logger.info("✨ Cycle complete. Sleeping for 10 minutes...")
     time.sleep(600)
 
 
-# ==========================================================
-# ENTRY POINT
-# ==========================================================
 if __name__ == "__main__":
-    logger.info("💓 JRAVIS Worker Started...")
-    enforce_brain()
-
     while True:
-        main_cycle()
+        main()
