@@ -1,30 +1,31 @@
-import logging
-from src.engines.openai_helper import ask_openai
-from publishers.affiliate_funnel_publisher import save_funnel_page
+# File: src/engines/affiliate_funnel_engine.py
+from typing import Dict, Any
+from src.openai_helper import openai_helper
 
-logger = logging.getLogger("AffiliateFunnelEngine")
-
-def run_affiliate_funnel_engine():
-    logger.info("🟦 Running Affiliate Funnel Engine...")
-
-    system_prompt = """
-    Create a high-conversion affiliate funnel page.
-    Sections required:
-    - Big promise headline
-    - Emotional hook
-    - Product explanation (generic)
-    - 5 benefits
-    - Story + transformation
-    - CTA with placeholder AFFILIATE_LINK
+def run_affiliate_funnel_engine() -> Dict[str, Any]:
     """
+    Creates a complete affiliate marketing funnel content pack.
+    """
+    system_prompt = (
+        "You are an expert in direct-response and affiliate marketing."
+    )
 
-    user_prompt = "Create a funnel for a digital product (link placeholder only)."
+    user_prompt = (
+        "Create a funnel content pack including:\n"
+        "- Landing page headline\n"
+        "- Sub-headline\n"
+        "- Persuasive body content\n"
+        "- 3 email sequence drafts\n"
+        "- Bonus section\n"
+        "- CTA section\n"
+        "Tone: high-conversion, emotional, persuasive."
+    )
 
-    try:
-        content = ask_openai(system_prompt, user_prompt)
+    result = openai_helper.generate_text(system_prompt, user_prompt, tokens=1500)
 
-        save_funnel_page(content)
+    payload = {
+        "type": "affiliate_funnel",
+        "content": result
+    }
 
-        logger.info("✅ Affiliate Funnel Generated Successfully")
-    except Exception as e:
-        logger.error(f"❌ Affiliate Funnel Engine Error: {e}")
+    return openai_helper.format_payload("affiliate_funnel", payload)
