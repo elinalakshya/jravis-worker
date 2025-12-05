@@ -1,14 +1,33 @@
-import os
+# File: src/engines/gumroad_engine.py
+from typing import Dict, Any
+from src.openai_helper import openai_helper
 
-OUTPUT_DIR = "output/gumroad"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+def run_gumroad_engine() -> Dict[str, Any]:
+    """
+    Generates a high-quality digital product optimized for Gumroad.
+    """
+    system_prompt = (
+        "You are a specialized product creator for Gumroad. "
+        "Your goal is to generate a premium digital product that can sell independently."
+    )
 
-def save_gumroad_product(title: str, html: str):
-    """Save Gumroad product as HTML file."""
-    safe_title = title.replace(" ", "_").replace("/", "_")
-    filepath = os.path.join(OUTPUT_DIR, f"{safe_title}.html")
+    user_prompt = (
+        "Generate a full digital product package with:\n"
+        "- Title\n"
+        - Strong Hook\n"
+        "- Product Description\n"
+        "- 10 Key Features\n"
+        "- Target Audience\n"
+        "- 3 Bonus Materials\n"
+        "- Short Promo Pitch\n"
+        "Make it high-value, unique, and market-ready."
+    )
 
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(html)
+    result = openai_helper.generate_text(system_prompt, user_prompt)
 
-    return filepath
+    payload = {
+        "title": "Gumroad Product",
+        "content": result
+    }
+
+    return openai_helper.format_payload("gumroad", payload)
