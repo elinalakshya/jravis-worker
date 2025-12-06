@@ -1,59 +1,120 @@
+# -----------------------------------------------------------
+# JRAVIS — Gumroad Auto Publisher
+# Mission 2040 — Template Marketplace (Phase 1)
+# -----------------------------------------------------------
+
 import os
 import requests
 
-GUMROAD_API_KEY = os.getenv("GUMROAD_API_KEY")
+GUMROAD_TOKEN = os.getenv("GUMROAD_API_KEY")
+GUMROAD_PRICE = 1200  # $12 → Gumroad uses cents
 
-GUMROAD_CREATE_URL = "https://api.gumroad.com/v2/products"
-GUMROAD_UPLOAD_URL = "https://api.gumroad.com/v2/products/{}/files"
+BASE_URL = "https://api.gumroad.com/v2"
 
 
-def upload_to_gumroad(name, description, price, zip_path):
-    """
-    Uploads a template ZIP to Gumroad and publishes the product.
-    """
-
-    if not GUMROAD_API_KEY:
-        return {"status": "error", "message": "Missing Gumroad API key"}
-
+# -----------------------------------------------------------
+# Create Product
+# -----------------------------------------------------------
+def create_gumroad_product(title, description):
     try:
-        # Step 1: Create product
-        create_payload = {
-            "access_token": GUMROAD_API_KEY,
-            "name": name,
+        url = f"{BASE_URL}/products"
+        payload = {
+            "access_token": GUMROAD_TOKEN,
+            "name": title,
             "description": description,
-            "price": int(price * 100),  # Gumroad expects cents
+            "price": GUMROAD_PRICE,
+            "custom_receipt": "Thanks for supporting JRAVIS Automation!",
             "published": True
         }
 
-        create_res = requests.post(GUMROAD_CREATE_URL, data=create_payload).json()
+        resp = requests.post(url, data=payload, timeout=20)
+        data = resp.json()
 
-        if not create_res.get("success"):
-            return {"status": "error", "message": create_res}
+        if not data.get("success"):
+            print("[Gumroad] ❌ Product creation failed:", data)
+            return None
 
-        product_id = create_res["product"]["id"]
-
-        # Step 2: Upload ZIP file
-        with open(zip_path, "rb") as f:
-            files = {"file": (os.path.basename(zip_path), f, "application/zip")}
-            upload_payload = {"access_token": GUMROAD_API_KEY}
-
-            upload_res = requests.post(
-                GUMROAD_UPLOAD_URL.format(product_id),
-                data=upload_payload,
-                files=files
-            ).json()
-
-        if not upload_res.get("success"):
-            return {"status": "error", "message": upload_res}
-
-        # Step 3: Return product URL
-        product_url = create_res["product"]["short_url"]
-
-        return {
-            "status": "success",
-            "product_id": product_id,
-            "product_url": product_url
-        }
+        return data["product"]["id"]
 
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        print("[Gumroad] ❌ Error creating product:", e)
+        return None
+
+
+# -----------------------------------------------------------
+# Upload File (ZIP Template)
+# -----------------------------------------------------------
+def upload_file(product_id, file_path):
+    try:
+        url = f"{BASE_URL}/products/{product_id}"
+        files = {
+            "content": (os.path.basename(file_path), open(file_path, "rb"))
+        }
+
+        payload = {
+            "access_token": GUMROAD_TOKEN
+        }
+
+        resp = requests.put(url, data=payload, files=files, timeout=30)
+        return resp.json()
+
+    except Exception as e:
+        print("[Gumroad] ❌ Upload failed:", e)
+        return None
+
+
+# -----------------------------------------------------------
+# Add Cover Image
+# -----------------------------------------------------------
+def add_cover_image(product_id, image_path):
+    try:
+        url = f"{BASE_URL}/products/{product_id}"
+        files = {
+            "preview_file": (os.path.basename(image_path), open(image_path, "rb"))
+        }
+
+        payload = {
+            "access_token": GUMROAD_TOKEN
+        }
+
+        resp = requests.put(url, data=payload, files=files, timeout=30)
+        return resp.json()
+
+    except Exception as e:
+        print("[Gumroad] ❌ Cover image upload failed:", e)
+        return None
+
+
+# -----------------------------------------------------------
+# MAIN ENTRY — Called by Unified Engine
+# -----------------------------------------------------------
+def publish_to_gumroad(template_name, zip_path, cover_image):
+    print(f"[Gumroad] 🚀 Publishing {template_name} to Gumroad...")
+
+    if not GUMROAD_TOKEN:
+        return {"status": "error", "message": "Missing GUMROAD_API_KEY"}
+
+    # Step 1: Create Product
+    product_id = create_gumroad_product(
+        title=f"{template_name} — JRAVIS Auto Template",
+        description="Premium automated design template by JRAVIS. Instant download & commercial use."
+    )
+
+    if not product_id:
+        return {"status": "error", "message": "Product creation failed"}
+
+    # Step 2: Upload ZIP File
+    upload_file(product_id, zip_path)
+
+    # Step 3: Upload Cover Image
+    add_cover_image(product_id, cover_image)
+
+    product_url = f"https://gumroad.com/l/{product_id}"
+
+    print(f"[Gumroad] ✅ Uploaded Successfully → {product_url}")
+
+    return {
+        "status": "success",
+        "url": product_url,
+        "product_id": product_id
+    }
