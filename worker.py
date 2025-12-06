@@ -8,22 +8,52 @@ import sys
 import time
 import random
 import requests
+import importlib.util
+
+print("🔧 JRAVIS WORKER INITIALIZING...")
+
 
 # -----------------------------------------------------------
-# FIX PYTHONPATH SO WORKER CAN SEE unified_engine.py
-# (located in jravis-worker/src/)
+# AUTO-DETECT ENGINE PATH (jravis-worker/src)
 # -----------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ENGINE_PATH = os.path.join(BASE_DIR, "jravis-worker", "src")
+ENGINE_DIR = os.path.join(BASE_DIR, "jravis-worker", "src")
 
-if ENGINE_PATH not in sys.path:
-    sys.path.append(ENGINE_PATH)
-    print("🔧 ENGINE PATH ENABLED →", ENGINE_PATH)
+if os.path.isdir(ENGINE_DIR):
+    sys.path.append(ENGINE_DIR)
+    print(f"🔧 ENGINE PATH ENABLED → {ENGINE_DIR}")
+else:
+    print("❌ ERROR: Engine folder not found:", ENGINE_DIR)
 
-# Now we can import normally
-from unified_engine import run_all_streams_micro_engine
+
+# -----------------------------------------------------------
+# AUTO-LOAD unified_engine.py (even if name slightly changed)
+# -----------------------------------------------------------
+engine_file = None
+
+try:
+    for f in os.listdir(ENGINE_DIR):
+        if f.endswith("_engine.py"):  # catches unified_engine.py
+            engine_file = os.path.join(ENGINE_DIR, f)
+            print("🔍 ENGINE FILE FOUND →", engine_file)
+            break
+except Exception as e:
+    print("❌ ERROR SCANNING ENGINE FOLDER:", e)
+
+if not engine_file:
+    raise FileNotFoundError("❌ ERROR: No *_engine.py file found in jravis-worker/src")
+
+spec = importlib.util.spec_from_file_location("unified_engine", engine_file)
+unified_engine = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(unified_engine)
+
+run_all_streams_micro_engine = unified_engine.run_all_streams_micro_engine
+print("✅ Engine Loaded Successfully!")
 
 
+# -----------------------------------------------------------
+# BACKEND API
+# -----------------------------------------------------------
 BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com")
 
 
@@ -94,16 +124,16 @@ def run_cycle():
     # 1. Generate template
     template = generate_template()
     if not template or "name" not in template:
-        print("❌ Template generation failed — skipping")
+        print("❌ Template generation failed — skipping cycle")
         return
 
     base_name = template["name"]
     zip_path = template.get("zip")
 
-    # 2. Evaluate performance
+    # 2. Growth scoring
     growth = evaluate_growth(base_name)
 
-    # 3. Scale depending on performance
+    # 3. Scaling logic
     if growth and growth.get("winner"):
         print("[Growth] WINNER → Scaling aggressively!")
         scale_template(base_name)
@@ -112,12 +142,12 @@ def run_cycle():
         print("[Growth] Normal scaling...")
         scale_template(base_name)
 
-    # 4. Monetization
+    # 4. Monetization engine
     if zip_path:
         print("\n💰 Triggering Monetization Engine...")
         run_all_streams_micro_engine(zip_path, base_name)
     else:
-        print("⚠️ No ZIP found — Skipping monetization")
+        print("⚠️ No ZIP found — skipping monetization")
 
 
 # ------------------------------------------------------
