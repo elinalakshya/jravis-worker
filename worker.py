@@ -1,5 +1,5 @@
 # -----------------------------------------------------------
-# JRAVIS WORKER — Batch 12 Growth Optimizer + Batch 9 Factory
+# JRAVIS WORKER — INSTANT ACTIVE MODE (DEBUG)
 # -----------------------------------------------------------
 
 import os
@@ -8,8 +8,7 @@ import random
 import requests
 
 BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com")
-API_KEY = os.getenv("REPORT_API_CODE")  # Worker auth key
-
+API_KEY = os.getenv("REPORT_API_CODE")
 
 HEADERS = {
     "X-API-KEY": API_KEY,
@@ -17,9 +16,6 @@ HEADERS = {
 }
 
 
-# ------------------------------------------------------
-# Template Generator
-# ------------------------------------------------------
 def generate_template():
     print("\n[Factory] Generating new template...")
     try:
@@ -32,9 +28,6 @@ def generate_template():
         return None
 
 
-# ------------------------------------------------------
-# Scale Variants
-# ------------------------------------------------------
 def scale_template(base_name):
     print("[Factory] Scaling:", base_name)
     try:
@@ -45,7 +38,6 @@ def scale_template(base_name):
             headers=HEADERS
         )
         res = r.json()
-
         print("[Factory] Scaled:", res)
         return res
     except Exception as e:
@@ -53,9 +45,6 @@ def scale_template(base_name):
         return None
 
 
-# ------------------------------------------------------
-# Growth Optimizer Evaluation
-# ------------------------------------------------------
 def evaluate_growth(template_name):
     try:
         perf = {
@@ -70,7 +59,6 @@ def evaluate_growth(template_name):
             json=perf,
             headers=HEADERS
         )
-
         res = r.json()
         print("[Growth] Evaluation:", res)
         return res
@@ -81,31 +69,34 @@ def evaluate_growth(template_name):
 
 
 # ------------------------------------------------------
-# Worker Loop
+# Worker Loop — Instant Logging + Heartbeats
 # ------------------------------------------------------
 def main():
-    print("🚀 JRAVIS Worker Started (Batch 12 Active)")
+    print("🚀 JRAVIS Worker Started — INSTANT ACTIVE MODE")
 
     while True:
+        print("\n----------------------------------------")
+        print("🔥 Running 1 full cycle immediately...")
+        print("----------------------------------------\n")
 
-        # Random chance to generate a new template
-        if random.random() < 0.45:
-            template = generate_template()
+        template = generate_template()
 
-            if template and "name" in template:
-                base = template["name"]
+        if template and "name" in template:
+            base = template["name"]
+            growth = evaluate_growth(base)
 
-                growth = evaluate_growth(base)
+            if growth and growth.get("winner"):
+                print("[Growth] WINNER → Scaling aggressively!")
+                scale_template(base)
+                scale_template(base)
+            else:
+                print("[Growth] Normal scaling...")
+                scale_template(base)
 
-                if growth and growth.get("winner"):
-                    print("[Growth] WINNER → Scaling aggressively!")
-                    scale_template(base)
-                    scale_template(base)
-                else:
-                    scale_template(base)
-
-        print("⏳ Sleeping 10 minutes...\n")
-        time.sleep(600)
+        # HEARTBEAT: print every 5 seconds
+        for i in range(6):
+            print(f"💓 Heartbeat... ({i+1}/6)")
+            time.sleep(5)
 
 
 # ------------------------------------------------------
