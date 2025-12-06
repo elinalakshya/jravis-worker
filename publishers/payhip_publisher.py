@@ -1,40 +1,53 @@
-# File: publishers/payhip_publisher.py
 import os
-import json
-import time
-from typing import Dict, Any
+import requests
 
-OUTPUT_DIR = "/opt/render/project/src/output/payhip"
+PAYHIP_API_KEY = os.getenv("PAYHIP_API_KEY")
 
-def ensure_output_dir():
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
+PAYHIP_PRODUCT_URL = "https://payhip.com/api/products"
 
-def publish_payhip(payload: Dict[str, Any]) -> Dict[str, Any]:
+
+def upload_to_payhip(name, description, price, zip_path):
     """
-    Payhip publisher (simulated).
-    Saves product listing JSON for n8n automation.
+    Uploads a digital product (ZIP) to Payhip using their API.
     """
-    ensure_output_dir()
 
-    timestamp = int(time.time())
-    filename = f"{OUTPUT_DIR}/payhip_{timestamp}.json"
+    if not PAYHIP_API_KEY:
+        return {"status": "error", "message": "Missing Payhip API key"}
 
     try:
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=4)
+        # Prepare payload
+        payload = {
+            "api_key": PAYHIP_API_KEY,
+            "title": name,
+            "description": description,
+            "price": float(price),
+            "published": "true"
+        }
+
+        # Attach file
+        with open(zip_path, "rb") as file:
+            files = {
+                "file": (os.path.basename(zip_path), file, "application/zip")
+            }
+
+            response = requests.post(PAYHIP_PRODUCT_URL, data=payload, files=files)
+
+        try:
+            res = response.json()
+        except:
+            return {"status": "error", "message": "Invalid JSON response from Payhip"}
+
+        if "error" in res:
+            return {"status": "error", "message": res["error"]}
+
+        # Product created
+        product_url = f"https://payhip.com/b/{res.get('product_id')}"
 
         return {
-            "publisher": "payhip",
-            "success": True,
-            "message": "Payhip publish simulated successfully",
-            "file": filename,
-            "data": payload
+            "status": "success",
+            "product_id": res.get("product_id"),
+            "product_url": product_url
         }
 
     except Exception as e:
-        return {
-            "publisher": "payhip",
-            "success": False,
-            "error": str(e)
-        }
+        return {"status": "error", "message": str(e)}
