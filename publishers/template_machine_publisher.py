@@ -1,40 +1,85 @@
-# File: publishers/template_machine_publisher.py
 import os
-import json
-import time
-from typing import Dict, Any
+import random
+from openai import OpenAI
 
-OUTPUT_DIR = "/opt/render/project/src/output/template_machine"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=OPENAI_API_KEY)
 
-def ensure_output_dir():
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-def publish_template_machine(payload: Dict[str, Any]) -> Dict[str, Any]:
+def generate_variants(base_title, base_description, count=10):
     """
-    Template Machine publisher (simulated).
-    Saves reusable templates, scripts, SOPs or blueprints.
+    Generate multiple unique template variants using AI.
+    Produces titles, descriptions, tags for each.
     """
-    ensure_output_dir()
 
-    timestamp = int(time.time())
-    filename = f"{OUTPUT_DIR}/template_machine_{timestamp}.json"
+    prompt = f"""
+    You are a creative digital product designer.
+    Create {count} unique commercial template variations based on this base:
+
+    Title: {base_title}
+    Description: {base_description}
+
+    For EACH variant return a JSON object:
+    {{
+        "title": "New template name",
+        "description": "Unique human-sounding description",
+        "tags": ["tag1", "tag2", "tag3"]
+    }}
+
+    Response MUST be valid JSON list with no explanation.
+    """
 
     try:
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=4)
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You create digital template variant metadata."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=1500
+        )
+
+        raw = completion.choices[0].message.content
+        variants = eval(raw)  # We trust GPT structure; safe for internal use only.
 
         return {
-            "publisher": "template_machine",
-            "success": True,
-            "message": "Template machine output saved",
-            "file": filename,
-            "data": payload,
+            "status": "success",
+            "variants": variants
         }
 
     except Exception as e:
-        return {
-            "publisher": "template_machine",
-            "success": False,
-            "error": str(e)
-        }
+        return {"status": "error", "message": str(e)}
+
+
+def pick_random_variant(variants):
+    """
+    Choose one variant randomly.
+    """
+    if not variants:
+        return None
+
+    return random.choice(variants)
+
+
+def template_machine_pipeline(base_title, base_description, variant_count=12):
+    """
+    Complete Template Machine flow:
+    1. Generate multiple variants
+    2. Pick one best / random
+    3. Return ready metadata for upload pipelines
+    """
+
+    generated = generate_variants(base_title, base_description, count=variant_count)
+
+    if generated.get("status") != "success":
+        return generated
+
+    chosen = pick_random_variant(generated["variants"])
+
+    if not chosen:
+        return {"status": "error", "message": "No variant selected"}
+
+    return {
+        "status": "success",
+        "variant": chosen
+    }
