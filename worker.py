@@ -1,52 +1,90 @@
 # -----------------------------------------------------------
-# JRAVIS WORKER — Batch 10 Auto Marketplace Uploader
+# JRAVIS WORKER — Batch 9 & Batch 11 Unified Worker Engine
 # -----------------------------------------------------------
 
 import os
 import time
-import json
+import random
 import requests
 
 BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com")
 
-def upload_template(name):
-    print(f"[Uploader] Uploading {name} ...")
+
+# -----------------------------------------------------------
+# Batch 9 — Template Generator
+# -----------------------------------------------------------
+def generate_template():
+    print("\n[Factory] Generating new template...")
     try:
-        res = requests.post(f"{BACKEND}/api/uploader/upload",
-                            json={"name": name}).json()
-        print("[Uploader] Upload result:", json.dumps(res, indent=2))
+        r = requests.post(f"{BACKEND}/api/factory/generate")
+        return r.json()
     except Exception as e:
-        print("[Uploader] ERROR:", e)
+        print("[Factory] ERROR:", e)
+        return None
 
-def process():
-    """
-    Automatically checks for freshly generated templates
-    and uploads them to all marketplaces.
-    """
-    print("[Uploader] Checking for new templates...")
 
+def scale_template(base_name):
+    print("[Factory] Scaling template:", base_name)
     try:
-        res = requests.get(f"{BACKEND}/api/factory/list").json()
-        templates = res.get("templates", [])
-    except:
-        print("[Uploader] Cannot fetch template list.")
-        return
+        count = random.randint(2, 6)
+        r = requests.post(
+            f"{BACKEND}/api/factory/scale",
+            json={"base": base_name, "count": count}
+        )
+        return r.json()
+    except Exception as e:
+        print("[Factory] Scale ERROR:", e)
+        return None
 
-    for t in templates:
-        if not t.get("uploaded", False):
-            upload_template(t["name"])
 
-            # Mark template as uploaded
-            requests.post(f"{BACKEND}/api/factory/mark_uploaded",
-                          json={"name": t["name"]})
+# -----------------------------------------------------------
+# Batch 11 — Pricing AI
+# -----------------------------------------------------------
+def send_pricing_request(name):
+    print("[Pricing] Calculating price for:", name)
+    try:
+        r = requests.post(
+            f"{BACKEND}/api/pricing/calc",
+            json={
+                "name": name,
+                "complexity": round(random.uniform(0.9, 1.5), 2),
+                "trending": round(random.uniform(0.8, 1.4), 2)
+            }
+        )
+        print("[Pricing Response]:", r.json())
+        return r.json()
+    except Exception as e:
+        print("[Pricing ERROR]:", e)
+        return None
 
+
+# -----------------------------------------------------------
+# Worker Loop
+# -----------------------------------------------------------
 def main():
-    print("🚀 JRAVIS Batch-10 Uploader Worker Started")
+    print("🚀 JRAVIS Worker Started — Batch 9 & 11 Active")
 
     while True:
-        process()
-        print("⏳ Sleeping 15 minutes...\n")
-        time.sleep(900)
+
+        # 45% probability of generating a new template
+        if random.random() < 0.45:
+            t = generate_template()
+
+            if t and "name" in t:
+                base = t["name"]
+
+                # Scale variants
+                scale_template(base)
+
+                # Pricing AI will price this template
+                send_pricing_request(base)
+
+        # System still runs pricing for at least 1 template every cycle
+        send_pricing_request("auto-pricing-template")
+
+        print("⏳ Sleeping 10 minutes...\n")
+        time.sleep(600)
+
 
 if __name__ == "__main__":
     main()
