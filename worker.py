@@ -1,5 +1,5 @@
 # -----------------------------------------------------------
-# JRAVIS WORKER — Batch 9 & Batch 11 Unified Worker Engine
+# JRAVIS WORKER — Batch 12 Growth Optimizer + Batch 9 Factory
 # -----------------------------------------------------------
 
 import os
@@ -10,81 +10,96 @@ import requests
 BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com")
 
 
-# -----------------------------------------------------------
-# Batch 9 — Template Generator
-# -----------------------------------------------------------
+# ------------------------------------------------------
+# Template Generator
+# ------------------------------------------------------
 def generate_template():
     print("\n[Factory] Generating new template...")
     try:
-        r = requests.post(f"{BACKEND}/api/factory/generate")
-        return r.json()
+        res = requests.post(f"{BACKEND}/api/factory/generate").json()
+        print("[Factory] Generated:", res)
+        return res
     except Exception as e:
-        print("[Factory] ERROR:", e)
+        print("[Factory] ERROR generating:", e)
         return None
 
 
+# ------------------------------------------------------
+# Scale Variants
+# ------------------------------------------------------
 def scale_template(base_name):
-    print("[Factory] Scaling template:", base_name)
+    print("[Factory] Scaling:", base_name)
     try:
         count = random.randint(2, 6)
-        r = requests.post(
+        res = requests.post(
             f"{BACKEND}/api/factory/scale",
             json={"base": base_name, "count": count}
-        )
-        return r.json()
+        ).json()
+
+        print("[Factory] Scaled:", res)
+        return res
     except Exception as e:
-        print("[Factory] Scale ERROR:", e)
+        print("[Factory] ERROR scaling:", e)
         return None
 
 
-# -----------------------------------------------------------
-# Batch 11 — Pricing AI
-# -----------------------------------------------------------
-def send_pricing_request(name):
-    print("[Pricing] Calculating price for:", name)
+# ------------------------------------------------------
+# Growth Optimizer Evaluation
+# ------------------------------------------------------
+def evaluate_growth(template_name):
+    """Simulates fetching performance and asks backend to score it."""
     try:
-        r = requests.post(
-            f"{BACKEND}/api/pricing/calc",
-            json={
-                "name": name,
-                "complexity": round(random.uniform(0.9, 1.5), 2),
-                "trending": round(random.uniform(0.8, 1.4), 2)
-            }
-        )
-        print("[Pricing Response]:", r.json())
-        return r.json()
+        perf = {
+            "name": template_name,
+            "clicks": random.randint(50, 500),
+            "sales": random.randint(0, 20),
+            "trend": round(random.uniform(0.8, 1.6), 2)
+        }
+
+        r = requests.post(f"{BACKEND}/api/growth/evaluate", json=perf)
+        res = r.json()
+
+        print("[Growth] Evaluation:", res)
+        return res
+
     except Exception as e:
-        print("[Pricing ERROR]:", e)
+        print("[Growth ERROR]:", e)
         return None
 
 
-# -----------------------------------------------------------
+# ------------------------------------------------------
 # Worker Loop
-# -----------------------------------------------------------
+# ------------------------------------------------------
 def main():
-    print("🚀 JRAVIS Worker Started — Batch 9 & 11 Active")
+    print("🚀 JRAVIS Worker Started (Batch 12 Active)")
 
     while True:
 
-        # 45% probability of generating a new template
+        # Random chance to generate a new template
         if random.random() < 0.45:
-            t = generate_template()
+            template = generate_template()
 
-            if t and "name" in t:
-                base = t["name"]
+            if template and "name" in template:
+                base = template["name"]
 
-                # Scale variants
-                scale_template(base)
+                # Growth evaluation
+                growth = evaluate_growth(base)
 
-                # Pricing AI will price this template
-                send_pricing_request(base)
-
-        # System still runs pricing for at least 1 template every cycle
-        send_pricing_request("auto-pricing-template")
+                # If winner → scale aggressively
+                if growth and growth.get("winner"):
+                    print("[Growth] WINNER → Scaling aggressively!")
+                    scale_template(base)
+                    scale_template(base)  # double scale
+                else:
+                    # Normal scaling
+                    scale_template(base)
 
         print("⏳ Sleeping 10 minutes...\n")
         time.sleep(600)
 
 
+# ------------------------------------------------------
+# Entry Point
+# ------------------------------------------------------
 if __name__ == "__main__":
     main()
