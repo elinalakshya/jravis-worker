@@ -1,40 +1,59 @@
-# File: publishers/gumroad_publisher.py
 import os
-import json
-import time
-from typing import Dict, Any
+import requests
 
-OUTPUT_DIR = "/opt/render/project/src/output/gumroad"
+GUMROAD_API_KEY = os.getenv("GUMROAD_API_KEY")
 
-def ensure_output_dir():
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
+GUMROAD_CREATE_URL = "https://api.gumroad.com/v2/products"
+GUMROAD_UPLOAD_URL = "https://api.gumroad.com/v2/products/{}/files"
 
-def publish_gumroad(payload: Dict[str, Any]) -> Dict[str, Any]:
+
+def upload_to_gumroad(name, description, price, zip_path):
     """
-    Gumroad publisher (simulated).
-    Saves engine-generated product data into JSON file.
+    Uploads a template ZIP to Gumroad and publishes the product.
     """
-    ensure_output_dir()
 
-    timestamp = int(time.time())
-    filename = f"{OUTPUT_DIR}/gumroad_{timestamp}.json"
+    if not GUMROAD_API_KEY:
+        return {"status": "error", "message": "Missing Gumroad API key"}
 
     try:
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=4)
+        # Step 1: Create product
+        create_payload = {
+            "access_token": GUMROAD_API_KEY,
+            "name": name,
+            "description": description,
+            "price": int(price * 100),  # Gumroad expects cents
+            "published": True
+        }
+
+        create_res = requests.post(GUMROAD_CREATE_URL, data=create_payload).json()
+
+        if not create_res.get("success"):
+            return {"status": "error", "message": create_res}
+
+        product_id = create_res["product"]["id"]
+
+        # Step 2: Upload ZIP file
+        with open(zip_path, "rb") as f:
+            files = {"file": (os.path.basename(zip_path), f, "application/zip")}
+            upload_payload = {"access_token": GUMROAD_API_KEY}
+
+            upload_res = requests.post(
+                GUMROAD_UPLOAD_URL.format(product_id),
+                data=upload_payload,
+                files=files
+            ).json()
+
+        if not upload_res.get("success"):
+            return {"status": "error", "message": upload_res}
+
+        # Step 3: Return product URL
+        product_url = create_res["product"]["short_url"]
 
         return {
-            "publisher": "gumroad",
-            "success": True,
-            "message": "Gumroad publish simulated successfully",
-            "file": filename,
-            "data": payload
+            "status": "success",
+            "product_id": product_id,
+            "product_url": product_url
         }
 
     except Exception as e:
-        return {
-            "publisher": "gumroad",
-            "success": False,
-            "error": str(e)
-        }
+        return {"status": "error", "message": str(e)}
