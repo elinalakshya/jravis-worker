@@ -1,3 +1,13 @@
+import sys, os
+
+# Fix PYTHONPATH so worker can see jravis-worker/src
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ENGINE_PATH = os.path.join(BASE_DIR, "jravis-worker", "src")
+
+if ENGINE_PATH not in sys.path:
+    sys.path.append(ENGINE_PATH)
+    print("🔧 ENGINE PATH ENABLED →", ENGINE_PATH)
+    
 # -----------------------------------------------------------
 # JRAVIS — Unified Monetization Engine
 # Mission 2040 — Phase-1 Full Automation
