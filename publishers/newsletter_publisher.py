@@ -1,50 +1,84 @@
+# -----------------------------------------------------------
+# JRAVIS — Newsletter Auto Publisher (Bervo Integration)
+# Mission 2040 — Free Traffic Engine
+# -----------------------------------------------------------
+
 import os
+import requests
 import datetime
-from pydrive.auth import GoogleAuth
-from pydrive.drive import GoogleDrive
 
-MASTER_FOLDER = "12mvSBr6Z-tAUQgwIO2LBZegP20eGAYh9"
+BERVO_API_KEY = os.getenv("BERVO_API_KEY")
+BERVO_LIST_ID = os.getenv("BERVO_LIST_ID")   # audience id
 
-def get_drive():
-    gauth = GoogleAuth()
-    gauth.LocalWebserverAuth()
-    return GoogleDrive(gauth)
 
-def ensure_folder(drive, parent_id, name):
-    query = f"'{parent_id}' in parents and trashed=false and mimeType='application/vnd.google-apps.folder' and title='{name}'"
-    file_list = drive.ListFile({'q': query}).GetList()
-    if file_list:
-        return file_list[0]['id']
+# -----------------------------------------------------------
+# Build Newsletter HTML Body
+# -----------------------------------------------------------
+def build_email_html(template_name, links):
+    html = f"""
+    <html>
+    <body style="font-family: Arial; line-height: 1.6; padding: 20px;">
+        <h2>🔥 New JRAVIS Template Drop: {template_name}</h2>
 
-    folder = drive.CreateFile({
-        'title': name,
-        'mimeType': 'application/vnd.google-apps.folder',
-        'parents': [{'id': parent_id}]
-    })
-    folder.Upload()
-    return folder['id']
+        <p>Hi there! Here's a brand-new premium design template generated automatically by JRAVIS.</p>
 
-def save_newsletter(title, html_content):
-    drive = get_drive()
+        <p>Download links:</p>
+        <ul>
+            <li><a href="{links.get('gumroad', '#')}">Gumroad</a></li>
+            <li><a href="{links.get('payhip', '#')}">Payhip</a></li>
+        </ul>
 
-    today = datetime.datetime.now()
-    month_name = today.strftime("%B %Y")
+        <p>Perfect for digital products, online businesses, content creators and more.</p>
 
-    month_folder = ensure_folder(drive, MASTER_FOLDER, month_name)
-    stream_folder = ensure_folder(drive, month_folder, "newsletter")
+        <p>— JRAVIS Automation Engine</p>
+    </body>
+    </html>
+    """
+    return html
 
-    filename = f"{title}.html"
-    file_path = f"/tmp/{filename}"
 
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(html_content)
+# -----------------------------------------------------------
+# Send Email via Bervo API
+# -----------------------------------------------------------
+def send_bervo_email(subject, html):
+    try:
+        url = "https://api.bervo.com/email/send"
 
-    gfile = drive.CreateFile({
-        'title': filename,
-        'parents': [{'id': stream_folder}]
-    })
+        payload = {
+            "api_key": Bervo_API_KEY,
+            "list_id": Bervo_LIST_ID,
+            "subject": subject,
+            "html": html
+        }
 
-    gfile.SetContentFile(file_path)
-    gfile.Upload()
+        resp = requests.post(url, json=payload, timeout=20)
+        return resp.json()
+    except Exception as e:
+        print("[Newsletter] ❌ Error sending email:", e)
+        return None
 
-    return gfile['id']
+
+# -----------------------------------------------------------
+# MAIN ENTRY — Called by Unified Engine
+# -----------------------------------------------------------
+def publish_newsletter(template_name, gumroad_url, payhip_url):
+    print(f"[Newsletter] 📧 Sending blast for {template_name}...")
+
+    if not BERVO_API_KEY or not BERVO_LIST_ID:
+        return {"status": "error", "message": "Missing BERVO API credentials"}
+
+    links = {
+        "gumroad": gumroad_url,
+        "payhip": payhip_url
+    }
+
+    subject = f"🔥 New Template Drop — {template_name}"
+    html = build_email_html(template_name, links)
+
+    result = send_bervo_email(subject, html)
+
+    if not result:
+        return {"status": "error", "message": "Newsletter send failed"}
+
+    print("[Newsletter] ✅ Blast Sent Successfully!")
+    return {"status": "success", "details": result}
