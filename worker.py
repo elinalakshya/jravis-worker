@@ -1,3 +1,13 @@
+import os
+
+print("📂 Listing deployed directory structure...")
+for root, dirs, files in os.walk(".", topdown=True):
+    print("DIR:", root)
+    for d in dirs:
+        print("  📁", d)
+    for f in files:
+        print("  📄", f)
+
 # -----------------------------------------------------------
 # JRAVIS WORKER — Phase-1 Full Automation Engine
 # Generates → Evaluates → Scales → Uploads → Promotes
