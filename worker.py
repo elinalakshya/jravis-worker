@@ -13,14 +13,25 @@ BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com")
 
 
 # ------------------------------------------------------
-# 1️⃣ New Template Generator
+# 1️⃣ New Template Generator (POST + JSON BODY REQUIRED)
 # ------------------------------------------------------
 def generate_template():
     print("\n[Factory] Generating new template...")
+
+    payload = {
+        "template_name": f"auto_template_{int(time.time())}"
+    }
+
     try:
-        res = requests.post(f"{BACKEND}/api/factory/generate").json()
+        res = requests.post(
+            f"{BACKEND}/api/factory/generate",
+            json=payload,     # << REQUIRED
+            timeout=30
+        ).json()
+
         print("[Factory] Generated:", res)
         return res
+
     except Exception as e:
         print("[Factory] ERROR generating:", e)
         return None
@@ -31,15 +42,19 @@ def generate_template():
 # ------------------------------------------------------
 def scale_template(base_name):
     print("[Factory] Scaling template:", base_name)
+
     try:
         count = random.randint(2, 6)
+
         res = requests.post(
             f"{BACKEND}/api/factory/scale",
-            json={"base": base_name, "count": count}
+            json={"base": base_name, "count": count},
+            timeout=30
         ).json()
 
         print("[Factory] Scaled Variants:", res)
         return res
+
     except Exception as e:
         print("[Factory] ERROR scaling:", e)
         return None
@@ -52,7 +67,8 @@ def main():
     print("🚀 JRAVIS Factory Worker Started (Batch 9 Active)")
 
     while True:
-        # Generate approx every 20–30 minutes
+
+        # Generate approximately every 20–30 minutes
         if random.random() < 0.45:
             template = generate_template()
 
