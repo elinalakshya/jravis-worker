@@ -1,150 +1,122 @@
 # -----------------------------------------------------------
-# JRAVIS WORKER — FINAL VERSION (Factory + Monetization)
+# JRAVIS WORKER (FINAL — backend_url FIXED)
 # -----------------------------------------------------------
 
 import os
-import sys
 import time
-import random
+import sys
 import requests
 
-# -----------------------------------------------------------
-# ENSURE REQUIRED FOLDERS
-# -----------------------------------------------------------
-REQUIRED_FOLDERS = ["funnels", "factory_output", "publishers", "src"]
-for folder in REQUIRED_FOLDERS:
-    if not os.path.exists(folder):
-        print(f"📁 Creating missing folder: {folder}")
-        os.makedirs(folder, exist_ok=True)
+sys.path.append(os.path.join(os.getcwd(), "src"))
 
-# -----------------------------------------------------------
-# FIX PYTHON PATH
-# -----------------------------------------------------------
-SRC_PATH = os.path.join(os.path.dirname(__file__), "src")
-if SRC_PATH not in sys.path:
-    print("🔧 Adding SRC path:", SRC_PATH)
-    sys.path.append(SRC_PATH)
-
-# -----------------------------------------------------------
-# IMPORT ENGINE
-# -----------------------------------------------------------
 from unified_engine import run_all_streams_micro_engine
 
-# -----------------------------------------------------------
-# ENVIRONMENT
-# -----------------------------------------------------------
+
 BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com")
-WORKER_KEY = os.getenv("WORKER_API_KEY", "")
 
-HEADERS = {
-    "X-API-KEY": WORKER_KEY,
-    "Content-Type": "application/json"
-}
 
-# -----------------------------------------------------------
-# 1) FACTORY — GENERATE TEMPLATE
-# -----------------------------------------------------------
-def generate_template():
-    print("[Factory] Generating template...")
-
+def get_task():
+    """Fetch new template from backend factory."""
+    url = f"{BACKEND}/api/factory/generate"
+    headers = {"X-API-KEY": os.getenv("WORKER_API_KEY")}
     try:
-        url = f"{BACKEND}/factory/generate"   # FIXED ROUTE
-        res = requests.post(url, headers=HEADERS)
-
-        data = res.json()
-        print("[Factory] Response:", data)
-
-        return data
+        r = requests.post(url, headers=headers)
+        if r.status_code == 200:
+            return r.json()
+        return None
     except Exception as e:
-        print("❌ Factory ERROR:", e)
+        print("[TASK ERROR]", e)
         return None
 
-# -----------------------------------------------------------
-# 2) FACTORY — SCALE TEMPLATE
-# -----------------------------------------------------------
-def scale_template(name):
-    print("[Factory] Scaling:", name)
 
+def scale_task(name):
+    """Ask backend to scale the template."""
+    url = f"{BACKEND}/api/factory/scale/{name}"
+    headers = {"X-API-KEY": os.getenv("WORKER_API_KEY")}
     try:
-        count = random.randint(2, 6)
-
-        url = f"{BACKEND}/factory/scale"      # FIXED ROUTE
-        res = requests.post(
-            url,
-            json={"base": name, "count": count},
-            headers=HEADERS
-        )
-
-        data = res.json()
-        print("[Factory] Scaled:", data)
-
-        return data
+        r = requests.post(url, headers=headers)
+        if r.status_code == 200:
+            return r.json()
+        return None
     except Exception as e:
-        print("❌ Scale ERROR:", e)
+        print("[SCALE ERROR]", e)
         return None
 
-# -----------------------------------------------------------
-# 3) GROWTH ENGINE (LOCAL RANDOM SCORING)
-# -----------------------------------------------------------
-def growth_score(name):
-    score = round(random.uniform(20, 180), 3)
 
-    result = {
-        "template": name,
-        "score": score,
-        "winner": score > 120,     # Winner threshold
-        "action": "scale" if score > 120 else "pause"
-    }
+def evaluate_growth(name):
+    """Ask backend growth engine to evaluate template."""
+    url = f"{BACKEND}/api/growth/evaluate/{name}"
+    headers = {"X-API-KEY": os.getenv("WORKER_API_KEY")}
+    try:
+        r = requests.get(url, headers=headers)
+        if r.status_code == 200:
+            return r.json()
+        return None
+    except Exception as e:
+        print("[GROWTH ERROR]", e)
+        return None
 
-    print("[Growth] Evaluation:", result)
-    return result
 
-# -----------------------------------------------------------
-# 4) FULL JRAVIS CYCLE
-# -----------------------------------------------------------
 def run_cycle():
     print("🔥 RUNNING JRAVIS CYCLE (FINAL)")
     print("--------------------------------------")
 
-    # ---- STEP 1: GENERATE TEMPLATE ----
-    tpl = generate_template()
-    if not tpl or "name" not in tpl:
+    task = get_task()
+    if not task or "name" not in task:
         print("❌ Template generation failed.")
+        time.sleep(3)
         return
 
-    name = tpl["name"]
-    zip_path = tpl["zip"]
+    name = task["name"]
+    zip_path = task["zip"]
 
-    # ---- STEP 2: SCORE GROWTH ----
-    score = growth_score(name)
+    print("[Factory] Response:", task)
 
-    # ---- STEP 3: SCALING ----
-    if score["winner"]:
+    # Growth Evaluation
+    score = evaluate_growth(name)
+    if not score:
+        print("❌ Growth evaluation failed.")
+        return
+
+    print("[Growth] Evaluation:", score)
+
+    winner = score.get("winner", False)
+
+    # Scale if winner
+    if winner:
         print("[Growth] WINNER → DOUBLE SCALE")
-        scale_template(name)
-        scale_template(name)
+        scale_task(name)
+        scale_task(name)
     else:
         print("[Growth] Normal Scale")
-        scale_template(name)
+        scale_task(name)
 
-    # ---- STEP 4: MONETIZATION ----
+    # Now MONETIZE
     print("💰 Monetizing...")
 
+    # FIXED → 3 arguments
     try:
-        run_all_streams_micro_engine(zip_path, name)
+        run_all_streams_micro_engine(zip_path, name, BACKEND)
     except Exception as e:
         print("❌ Monetization Engine ERROR:", e)
 
-# -----------------------------------------------------------
-# 5) MAIN LOOP
-# -----------------------------------------------------------
+
 def main():
     print("🚀 JRAVIS WORKER STARTED — FINAL MODE")
 
     while True:
         run_cycle()
-        time.sleep(3)
+        time.sleep(2)
 
-# -----------------------------------------------------------
+
 if __name__ == "__main__":
+    os.makedirs("funnels", exist_ok=True)
+    os.makedirs("factory_output", exist_ok=True)
+
+    # Ensure src path is added
+    src_path = os.path.join(os.getcwd(), "src")
+    sys.path.append(src_path)
+
+    print("🔧 Adding SRC path:", src_path)
+
     main()
