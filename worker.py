@@ -1,136 +1,132 @@
 # -----------------------------------------------------------
-# JRAVIS WORKER — FULL AUTOMATION MODE (FINAL FIXED VERSION)
+# JRAVIS WORKER — FINAL VERSION (PATH FIXED)
 # -----------------------------------------------------------
 
 import os
+import sys
 import time
 import random
 import requests
 
+# ------------------------------
+# FIX PYTHON PATH FOR RENDER
+# ------------------------------
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+SRC_DIR = os.path.join(CURRENT_DIR, "src")
+
+if SRC_DIR not in sys.path:
+    print("🔧 Adding SRC path:", SRC_DIR)
+    sys.path.append(SRC_DIR)
+
+# ------------------------------
+# IMPORT ENGINE
+# ------------------------------
 from unified_engine import run_all_streams_micro_engine
 
 
-# -----------------------------------------------------------
 # BACKEND URL
-# -----------------------------------------------------------
 BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com")
-WORKER_API_KEY = os.getenv("WORKER_API_KEY", "")
-
-HEADERS = {"X-API-KEY": WORKER_API_KEY}
+API_KEY = os.getenv("WORKER_API_KEY")
 
 
-# -----------------------------------------------------------
-# 1) Generate Template ZIP  (FIXED ROUTE)
-# -----------------------------------------------------------
+# ------------------------------
+# Generate Template
+# ------------------------------
 def generate_template():
     print("\n[Factory] Generating template...")
+
     try:
         res = requests.post(
-            f"{BACKEND}/factory/generate",
-            headers=HEADERS
+            f"{BACKEND}/api/factory/generate",
+            headers={"X-API-KEY": API_KEY}
         ).json()
-
         print("[Factory] Response:", res)
         return res
-
     except Exception as e:
-        print("[Factory ERROR]:", e)
+        print("[Factory ERROR]", e)
         return None
 
 
-# -----------------------------------------------------------
-# 2) Scale Template Variants  (FIXED ROUTE)
-# -----------------------------------------------------------
-def scale_template(base_name):
-    print(f"[Factory] Scaling: {base_name}")
+# ------------------------------
+# Scale Template
+# ------------------------------
+def scale_template(base):
     try:
         count = random.randint(2, 6)
         res = requests.post(
-            f"{BACKEND}/factory/scale",
-            json={"base": base_name, "count": count},
-            headers=HEADERS
+            f"{BACKEND}/api/factory/scale",
+            headers={"X-API-KEY": API_KEY},
+            json={"base": base, "count": count}
         ).json()
-
-        print("[Factory] Scaled:", res)
+        print("[Scale] Response:", res)
         return res
-
     except Exception as e:
-        print("[Factory ERROR]:", e)
+        print("[Scale ERROR]", e)
         return None
 
 
-# -----------------------------------------------------------
-# 3) Growth Engine — Score Winners
-# -----------------------------------------------------------
-def evaluate_growth(template_name):
-    try:
-        perf = {
-            "name": template_name,
-            "clicks": random.randint(50, 500),
-            "sales": random.randint(0, 20),
-            "trend": round(random.uniform(0.8, 1.6), 2)
-        }
+# ------------------------------
+# Growth Evaluation
+# ------------------------------
+def evaluate_growth(name):
+    data = {
+        "template": name,
+        "clicks": random.randint(50, 500),
+        "sales": random.randint(0, 20),
+        "score": random.uniform(10, 200)
+    }
 
+    try:
         res = requests.post(
             f"{BACKEND}/api/growth/evaluate",
-            json=perf,
-            headers=HEADERS
+            headers={"X-API-KEY": API_KEY},
+            json=data
         ).json()
-
-        print("[Growth] Evaluation:", res)
+        print("[Growth]", res)
         return res
-
     except Exception as e:
-        print("[Growth ERROR]:", e)
+        print("[Growth ERROR]", e)
         return None
 
 
-# -----------------------------------------------------------
-# 4) JRAVIS Full Automation Cycle
-# -----------------------------------------------------------
+# ------------------------------
+# FULL CYCLE
+# ------------------------------
 def run_cycle():
-    print("\n--------------------------------------")
-    print("🔥 RUNNING JRAVIS CYCLE (DEBUG)")
+    print("\n🔥 RUNNING JRAVIS CYCLE (DEBUG)")
     print("--------------------------------------")
 
-    # STEP 1 — Generate
-    template = generate_template()
-    if not template or "name" not in template:
-        print("❌ Template generation failed")
-        time.sleep(3)
+    tpl = generate_template()
+    if not tpl or "name" not in tpl:
+        print("⚠ Template generation failed.")
         return
 
-    template_name = template["name"]
-    zip_path = template.get("zip")
-    print(f"⚡ Template Name: {template_name}")
+    name = tpl["name"]
+    zip_path = tpl["zip"]
 
-    # STEP 2 — Growth
-    growth = evaluate_growth(template_name)
+    growth = evaluate_growth(name)
 
-    # STEP 3 — Scale
-    if growth and growth.get("winner"):
-        print("[Growth] WINNER → DOUBLE SCALE")
-        scale_template(template_name)
-        scale_template(template_name)
+    if growth.get("winner"):
+        print("[WINNER] Double scaling")
+        scale_template(name)
+        scale_template(name)
     else:
-        print("[Growth] Normal Scale")
-        scale_template(template_name)
+        print("[NORMAL] Single scaling")
+        scale_template(name)
 
-    # STEP 4 — Monetize
     print("💰 Monetizing...")
-    run_all_streams_micro_engine(zip_path, template_name)
-
-    time.sleep(3)
+    run_all_streams_micro_engine(zip_path, name)
 
 
-# -----------------------------------------------------------
-# ENTRY POINT
-# -----------------------------------------------------------
+# ------------------------------
+# MAIN LOOP
+# ------------------------------
 def main():
-    print("🚀 JRAVIS WORKER STARTED — FULL AUTOMATION MODE ENABLED\n")
+    print("🚀 JRAVIS WORKER STARTED")
 
     while True:
         run_cycle()
+        time.sleep(3)
 
 
 if __name__ == "__main__":
