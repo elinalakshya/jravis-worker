@@ -1,2 +1,12 @@
+import time
+
 def publish_to_marketplaces(zip_path, title):
-    return {"status": "success", "msg": "Distributed to partner marketplaces"}
+    print(f"[MARKETPLACES] Publishing {title} to external networks...")
+
+    time.sleep(1)
+
+    return {
+        "status": "success",
+        "platforms": ["etsy", "shopify", "creative market"],
+        "note": "Mock publishing completed"
+    }
