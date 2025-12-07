@@ -1,4 +1,17 @@
 # -----------------------------------------------------------
+# AUTO-CREATE REQUIRED DIRECTORIES
+# -----------------------------------------------------------
+
+import os
+
+REQUIRED_FOLDERS = ["funnels", "factory_output", "publishers", "src"]
+
+for folder in REQUIRED_FOLDERS:
+    if not os.path.exists(folder):
+        print(f"📁 Creating missing folder: {folder}")
+        os.makedirs(folder, exist_ok=True)
+
+# -----------------------------------------------------------
 # JRAVIS WORKER — FULL AUTOMATION MODE
 # Template Creation → Growth Evaluation → Scaling → Monetization
 # -----------------------------------------------------------
