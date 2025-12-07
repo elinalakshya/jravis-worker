@@ -1,29 +1,20 @@
-# -----------------------------------------------------------
-# AFFILIATE FUNNEL GENERATOR — JRAVIS Auto-Landing System
-# -----------------------------------------------------------
-
 import os
 
-def create_affiliate_funnel(title: str, link: str):
-    print(f"[FUNNEL] Creating affiliate funnel for {title}...")
-
-    folder = "funnels"
-    os.makedirs(folder, exist_ok=True)
-
-    html_path = f"{folder}/{title.replace(' ', '_').lower()}.html"
-
+def create_affiliate_funnel(title, link):
     html = f"""
     <html>
-    <head><title>{title}</title></head>
-    <body>
-        <h1>{title}</h1>
-        <p>Grab it here: <a href="{link}">{link}</a></p>
-    </body>
+        <body>
+            <h1>{title}</h1>
+            <p>🔥 Exclusive Offer</p>
+            <a href="{link}">Buy Now</a>
+        </body>
     </html>
     """
 
-    with open(html_path, "w") as f:
+    os.makedirs("funnels", exist_ok=True)
+    path = f"funnels/{title}.html"
+
+    with open(path, "w") as f:
         f.write(html)
 
-    print(f"[FUNNEL] Saved at {html_path}")
-    return {"status": "ok", "path": html_path}
+    return {"status": "success", "path": path}
