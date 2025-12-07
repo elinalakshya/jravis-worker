@@ -1,5 +1,5 @@
 # -----------------------------------------------------------
-# JRAVIS Unified Monetization Engine (FINAL)
+# JRAVIS Unified Monetization Engine (FINAL FIX)
 # -----------------------------------------------------------
 
 import os
@@ -13,88 +13,62 @@ from publishers.affiliate_funnel_publisher import generate_affiliate_funnel
 from publishers.multi_marketplace_publisher import publish_to_marketplaces
 
 
-
 def run_all_streams_micro_engine(zip_path: str, title: str, backend_url: str):
-    """
-    FULL monetization engine.
-    Now includes backend URL for downloading template ZIPs.
-    """
+    """FULL monetization engine with backend ZIP download support."""
 
-    print("\n⚙️  JRAVIS UNIFIED ENGINE STARTED")
-    print(f"📦 Input ZIP → {zip_path}")
-    print(f"📝 Title → {title}")
+    print("\n⚙️ JRAVIS UNIFIED ENGINE STARTED")
+    print("ZIP =", zip_path)
+    print("TITLE =", title)
 
-    # -----------------------------------------------------------
-    # Try downloading ZIP from backend (fixing NOT FOUND issue)
-    # -----------------------------------------------------------
-
+    # If ZIP doesn't exist locally, download it
     if not os.path.exists(zip_path):
         download_url = f"{backend_url}/{zip_path}"
-        print(f"[DOWNLOAD] Fetching: {download_url}")
+        print(f"[DOWNLOAD] Fetching ZIP: {download_url}")
 
-        try:
-            r = requests.get(download_url)
-            if r.status_code == 200:
-                os.makedirs("factory_output", exist_ok=True)
-                with open(zip_path, "wb") as f:
-                    f.write(r.content)
-                print("[DOWNLOAD] ZIP saved locally.")
-            else:
-                print("[DOWNLOAD ERROR]", r.text)
-                print("❌ ZIP Download Failed — Skipping monetization.")
-                return
-        except Exception as e:
-            print("[DOWNLOAD EXCEPTION]", e)
+        r = requests.get(download_url)
+        if r.status_code == 200:
+            os.makedirs("factory_output", exist_ok=True)
+            with open(zip_path, "wb") as f:
+                f.write(r.content)
+            print("[DOWNLOAD] ZIP saved locally.")
+        else:
+            print("[DOWNLOAD ERROR]", r.text)
+            print("❌ Cannot continue — ZIP missing")
             return
 
-    # -----------------------------------------------------------
     # GUMROAD
-    # -----------------------------------------------------------
-    gum = publish_to_gumroad(zip_path, title)
+    gumroad = publish_to_gumroad(zip_path, title)
 
-    # -----------------------------------------------------------
     # PAYHIP
-    # -----------------------------------------------------------
-    pay = publish_to_payhip(zip_path, title)
+    payhip = publish_to_payhip(zip_path, title)
 
-    # -----------------------------------------------------------
     # PRINTIFY
-    # -----------------------------------------------------------
-    pod = publish_to_printify(zip_path, title)
+    printify = publish_to_printify(zip_path, title)
 
-    # -----------------------------------------------------------
     # NEWSLETTER
-    # -----------------------------------------------------------
     mail = send_newsletter(title)
 
-    # -----------------------------------------------------------
     # FUNNEL PAGE
-    # -----------------------------------------------------------
     funnel = generate_affiliate_funnel(title)
 
-    # -----------------------------------------------------------
     # MARKETPLACES
-    # -----------------------------------------------------------
-    market = publish_to_marketplaces(zip_path, title)
+    marketplaces = publish_to_marketplaces(zip_path, title)
 
-    # -----------------------------------------------------------
     # SUMMARY
-    # -----------------------------------------------------------
     print("\n🎉 MONETIZATION COMPLETE")
-    print("--------------------------------------")
-    print("GUMROAD →", gum)
-    print("PAYHIP →", pay)
-    print("PRINTIFY →", pod)
+    print("GUMROAD →", gumroad)
+    print("PAYHIP →", payhip)
+    print("PRINTIFY →", printify)
     print("NEWSLETTER →", mail)
     print("FUNNEL →", funnel)
-    print("MARKETPLACES →", market)
-    print("--------------------------------------\n")
+    print("MARKETPLACES →", marketplaces)
+    print("--------------------------------------")
 
     return {
-        "gumroad": gum,
-        "payhip": pay,
-        "printify": pod,
+        "gumroad": gumroad,
+        "payhip": payhip,
+        "printify": printify,
         "newsletter": mail,
         "funnel": funnel,
-        "marketplaces": market,
+        "marketplaces": marketplaces
     }
