@@ -1,133 +1,69 @@
-# -----------------------------------------------------------
-# JRAVIS WORKER — FINAL VERSION (PATH FIXED)
-# -----------------------------------------------------------
-
 import os
-import sys
 import time
-import random
 import requests
+from pathlib import Path
 
-# ------------------------------
-# FIX PYTHON PATH FOR RENDER
-# ------------------------------
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-SRC_DIR = os.path.join(CURRENT_DIR, "src")
+from src.unified_engine import run_all_streams_micro_engine
 
-if SRC_DIR not in sys.path:
-    print("🔧 Adding SRC path:", SRC_DIR)
-    sys.path.append(SRC_DIR)
-
-# ------------------------------
-# IMPORT ENGINE
-# ------------------------------
-from unified_engine import run_all_streams_micro_engine
-
-
-# BACKEND URL
-BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com")
+BACKEND = os.getenv("BACKEND_URL")
 API_KEY = os.getenv("WORKER_API_KEY")
 
+if not BACKEND:
+    raise RuntimeError("BACKEND_URL is missing")
 
-# ------------------------------
-# Generate Template
-# ------------------------------
-def generate_template():
-    print("\n[Factory] Generating template...")
+HEADERS = {"X-API-KEY": API_KEY}
 
-    try:
-        res = requests.post(
-            f"{BACKEND}/api/factory/generate",
-            headers={"X-API-KEY": API_KEY}
-        ).json()
-        print("[Factory] Response:", res)
-        return res
-    except Exception as e:
-        print("[Factory ERROR]", e)
+os.makedirs("factory_output", exist_ok=True)
+os.makedirs("funnels", exist_ok=True)
+
+
+def download_zip(zip_path):
+    """Download ZIP from backend / factory_output route"""
+    url = f"{BACKEND}/{zip_path}"
+    print(f"[DOWNLOAD] GET → {url}")
+
+    r = requests.get(url, headers=HEADERS)
+
+    if r.status_code != 200:
+        print("[DOWNLOAD ERROR]", r.text)
         return None
 
+    # Ensure directory exists
+    Path(zip_path).parent.mkdir(parents=True, exist_ok=True)
 
-# ------------------------------
-# Scale Template
-# ------------------------------
-def scale_template(base):
-    try:
-        count = random.randint(2, 6)
-        res = requests.post(
-            f"{BACKEND}/api/factory/scale",
-            headers={"X-API-KEY": API_KEY},
-            json={"base": base, "count": count}
-        ).json()
-        print("[Scale] Response:", res)
-        return res
-    except Exception as e:
-        print("[Scale ERROR]", e)
-        return None
+    with open(zip_path, "wb") as f:
+        f.write(r.content)
+
+    return zip_path
 
 
-# ------------------------------
-# Growth Evaluation
-# ------------------------------
-def evaluate_growth(name):
-    data = {
-        "template": name,
-        "clicks": random.randint(50, 500),
-        "sales": random.randint(0, 20),
-        "score": random.uniform(10, 200)
-    }
-
-    try:
-        res = requests.post(
-            f"{BACKEND}/api/growth/evaluate",
-            headers={"X-API-KEY": API_KEY},
-            json=data
-        ).json()
-        print("[Growth]", res)
-        return res
-    except Exception as e:
-        print("[Growth ERROR]", e)
-        return None
-
-
-# ------------------------------
-# FULL CYCLE
-# ------------------------------
 def run_cycle():
-    print("\n🔥 RUNNING JRAVIS CYCLE (DEBUG)")
     print("--------------------------------------")
+    print("🔥 RUNNING JRAVIS CYCLE")
 
-    tpl = generate_template()
-    if not tpl or "name" not in tpl:
-        print("⚠ Template generation failed.")
+    # Step 1 — Generate template
+    res = requests.post(f"{BACKEND}/factory/generate", headers=HEADERS).json()
+    print("[FACTORY]", res)
+
+    if "zip" not in res:
+        print("❌ No ZIP returned, skipping.")
         return
 
-    name = tpl["name"]
-    zip_path = tpl["zip"]
+    name = res["name"]
+    zip_path = res["zip"]
 
-    growth = evaluate_growth(name)
+    # Step 2 — Download ZIP
+    local_zip = download_zip(zip_path)
+    if not local_zip:
+        print("❌ ZIP download failed")
+        return
 
-    if growth.get("winner"):
-        print("[WINNER] Double scaling")
-        scale_template(name)
-        scale_template(name)
-    else:
-        print("[NORMAL] Single scaling")
-        scale_template(name)
-
-    print("💰 Monetizing...")
-    run_all_streams_micro_engine(zip_path, name)
-
-
-# ------------------------------
-# MAIN LOOP
-# ------------------------------
-def main():
-    print("🚀 JRAVIS WORKER STARTED")
-
-    while True:
-        run_cycle()
-        time.sleep(3)
+    # Step 3 — Monetization
+    run_all_streams_micro_engine(local_zip, name)
 
 
 if __name__ == "__main__":
-    main()
+    print("🚀 JRAVIS WORKER STARTED")
+    while True:
+        run_cycle()
+        time.sleep(5)
