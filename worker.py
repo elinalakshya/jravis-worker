@@ -1,56 +1,106 @@
 import os
 import time
+import sys
 import requests
 
-BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com")
-KEY = os.getenv("WORKER_API_KEY", "JRAVIS_2040_MASTER_KEY")
+# Ensure src path
+SRC_PATH = os.path.join(os.getcwd(), "src")
+sys.path.append(SRC_PATH)
 
-def api_post(path):
-    url = f"{BACKEND}{path}"
-    r = requests.post(url, headers={"X-API-KEY": KEY})
-    return r.json()
+print("🔧 SRC_PATH =", SRC_PATH)
+
+# Import unified engine
+from unified_engine import run_all_streams_micro_engine
+
+# Backend config
+BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com")
+WORKER_KEY = os.getenv("WORKER_API_KEY")
+
+print("🔧 BACKEND =", BACKEND)
+
+
+# ---------------------------
+# API HELPERS
+# ---------------------------
 
 def api_get(path):
-    url = f"{BACKEND}{path}"
-    r = requests.get(url, headers={"X-API-KEY": KEY})
-    return r.json()
+    try:
+        r = requests.get(
+            f"{BACKEND}{path}",
+            headers={"X-API-KEY": WORKER_KEY},
+        )
+        return r.json() if r.status_code == 200 else None
+    except:
+        return None
 
-def download_zip(zip_path):
-    url = f"{BACKEND}/files/{zip_path}"
-    os.makedirs("factory_output", exist_ok=True)
-    r = requests.get(url)
-    if r.status_code == 200:
-        full_path = f"./{zip_path}"
-        with open(full_path, "wb") as f:
-            f.write(r.content)
-        return full_path
-    return None
+
+def api_post(path):
+    try:
+        r = requests.post(
+            f"{BACKEND}{path}",
+            headers={"X-API-KEY": WORKER_KEY},
+        )
+        return r.json()
+    except:
+        return None
+
+
+# ---------------------------
+# JRAVIS CYCLE
+# ---------------------------
 
 def run_cycle():
-    print("\n🔥 RUNNING CYCLE")
+    print("🔥 RUNNING CYCLE")
+    print("--------------------------------")
 
     task = api_post("/api/factory/generate")
+
+    if not task or "name" not in task:
+        print("❌ Template generation failed")
+        time.sleep(2)
+        return
+
     name = task["name"]
-    zip_rel = task["zip"]
+    zip_path = task["zip"]
 
     print("[Factory]", task)
 
-    growth = api_get(f"/api/growth/evaluate/{name}")
+    # --- Growth ---
+    growth = api_post("/api/growth/evaluate")
+
     print("[Growth]", growth)
 
-    api_post(f"/api/factory/scale/{name}")
+    if not growth or isinstance(growth, dict) and "detail" in growth:
+        print("⚠️ Growth score invalid → Normal scale")
+        api_post(f"/api/factory/scale/{name}")
+    else:
+        if growth.get("winner"):
+            print("🏆 WINNER → DOUBLE SCALE")
+            api_post(f"/api/factory/scale/{name}")
+            api_post(f"/api/factory/scale/{name}")
+        else:
+            print("➡️ Normal scale")
+            api_post(f"/api/factory/scale/{name}")
 
-    print("💾 Downloading ZIP…")
-    downloaded = download_zip(zip_rel)
-    print("ZIP:", downloaded)
+    # Monetize
+    print("💰 Monetizing...")
+    print(f"🔧 Engine Call: run_all_streams_micro_engine('{zip_path}', '{name}', '{BACKEND}')")
 
-    print("💰 Monetization complete (simulated)")
+    try:
+        run_all_streams_micro_engine(zip_path, name, BACKEND)
+    except Exception as e:
+        print("❌ Engine ERROR:", e)
+
 
 def main():
     print("🚀 WORKER ONLINE")
+
+    os.makedirs("factory_output", exist_ok=True)
+
     while True:
         run_cycle()
-        time.sleep(3)
+        time.sleep(2)
+
 
 if __name__ == "__main__":
     main()
