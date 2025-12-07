@@ -41,3 +41,6 @@ PyPDF2
 requests
 openai
 python-dotenv
+
+requests
+python-dotenv
