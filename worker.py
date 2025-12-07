@@ -59,7 +59,7 @@ def scale_template(name):
 
 
 # -----------------------------------------------------------
-# 3) Growth Score
+# 3) Growth Score (FIXED PATH)
 # -----------------------------------------------------------
 def evaluate_growth(template_name):
     payload = {
@@ -68,7 +68,9 @@ def evaluate_growth(template_name):
         "sales": random.randint(0, 20),
         "trend": round(random.uniform(0.8, 1.6), 2),
     }
-    return backend_post("/api/growth/evaluate", payload)
+    
+    # FIXED: removed /api
+    return backend_post("/growth/evaluate", payload)
 
 
 # -----------------------------------------------------------
