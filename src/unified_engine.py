@@ -1,5 +1,6 @@
 # -----------------------------------------------------------
-# JRAVIS Unified Monetization Engine (FINAL FIXED VERSION)
+# JRAVIS Unified Monetization Engine (FINAL VERSION)
+# Downloads ZIP → Uploads to all platforms → Generates funnels
 # -----------------------------------------------------------
 
 import os
@@ -12,105 +13,123 @@ from publishers.newsletter_content_publisher import send_newsletter
 from publishers.affiliate_funnel_publisher import create_affiliate_funnel
 from publishers.multi_marketplace_publisher import publish_to_marketplaces
 
-BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com")
-API_KEY = os.getenv("WORKER_API_KEY")
+
+BACKEND_URL = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com")
 
 
 # -----------------------------------------------------------
 # DOWNLOAD ZIP FROM BACKEND
 # -----------------------------------------------------------
-def download_zip(zip_path: str):
-    file_name = os.path.basename(zip_path)
-    local_path = f"factory_output/{file_name}"
+def download_zip(zip_path: str) -> str:
+    """
+    JRAVIS Backend returns ZIP paths like:
+        factory_output/template-1234.zip
 
-    url = f"{BACKEND}/{zip_path}"
-    headers = {"X-API-KEY": API_KEY}
+    Worker must download:
+        https://jravis-backend.onrender.com/factory_output/template-1234.zip
+    """
+
+    url = f"{BACKEND_URL}/{zip_path}"
+    local_file = f"/tmp/{os.path.basename(zip_path)}"
 
     print(f"[DOWNLOAD] Fetching: {url}")
 
-    r = requests.get(url, headers=headers)
+    try:
+        r = requests.get(url, timeout=20)
+        if r.status_code != 200:
+            print("[DOWNLOAD ERROR]", r.text)
+            return None
 
-    if r.status_code != 200:
-        print("[DOWNLOAD ERROR]", r.text)
+        with open(local_file, "wb") as f:
+            f.write(r.content)
+
+        print(f"[DOWNLOAD] Saved → {local_file}")
+        return local_file
+
+    except Exception as e:
+        print("[DOWNLOAD ERROR]", e)
         return None
-
-    with open(local_path, "wb") as f:
-        f.write(r.content)
-
-    print(f"[DOWNLOAD] Saved → {local_path}")
-    return local_path
 
 
 # -----------------------------------------------------------
-# CLEAN TITLE
+# Extract Title from ZIP
 # -----------------------------------------------------------
 def extract_title(zip_path: str) -> str:
     base = os.path.basename(zip_path)
-    return base.replace(".zip", "").replace("_", " ").title()
+    name = base.replace(".zip", "").replace("_", " ").title()
+    return name
 
 
 # -----------------------------------------------------------
-# MASTER MONETIZATION ENGINE
+# Main Unified Engine
 # -----------------------------------------------------------
-def run_all_streams_micro_engine(zip_path: str, template_code: str):
+def run_all_streams_micro_engine(zip_path: str, template_name: str):
     print("\n⚙️ JRAVIS UNIFIED ENGINE STARTED")
-    print(f"📦 Input ZIP → {zip_path}")
+    print("📦 Input ZIP →", zip_path)
 
-    # 1. Download real file before uploading
+    # 1. Download actual ZIP file from backend
     local_zip = download_zip(zip_path)
     if not local_zip:
         print("❌ ZIP Download Failed — Skipping monetization.")
         return
 
-    title = extract_title(local_zip)
-    print(f"📝 Title → {title}")
+    title = extract_title(zip_path)
+    print("📝 Title →", title)
 
-    # -----------------------------------------------------------
-    # 1) Gumroad
-    # -----------------------------------------------------------
-    print("[GUMROAD] Uploading...")
+    # -------------------------------------------------------
+    # 2. Gumroad Upload
+    # -------------------------------------------------------
+    print("\n[GUMROAD] Uploading", title, "...")
     gumroad_res = upload_to_gumroad(local_zip, title)
 
-    gumroad_link = gumroad_res.get("url", "https://gumroad.com")
+    gumroad_link = None
+    try:
+        gumroad_link = gumroad_res["response"]["product"]["short_url"]
+    except:
+        gumroad_link = "https://gumroad.com"
 
-    # -----------------------------------------------------------
-    # 2) Payhip
-    # -----------------------------------------------------------
-    print("[PAYHIP] Uploading...")
+    # -------------------------------------------------------
+    # 3. Payhip Upload
+    # -------------------------------------------------------
+    print("\n[PAYHIP] Uploading", title, "...")
     payhip_res = upload_to_payhip(local_zip, title)
 
-    # -----------------------------------------------------------
-    # 3) Printify FIXED — include print_areas
-    # -----------------------------------------------------------
-    print("[PRINTIFY] Creating POD product...")
-    printify_res = upload_to_printify(
-        local_zip, 
-        title,
-        print_areas=[{
-            "variant_id": 1,
-            "placeholders": [{"position": "front", "scale": 1.0}]
-        }]
-    )
+    # -------------------------------------------------------
+    # 4. Printify Upload
+    # -------------------------------------------------------
+    print("\n[PRINTIFY] Uploading POD asset for", title, "...")
+    printify_res = upload_to_printify(local_zip, title)
 
-    # -----------------------------------------------------------
-    # 4) Newsletter
-    # -----------------------------------------------------------
-    print("[NEWSLETTER] Sending broadcast...")
+    # -------------------------------------------------------
+    # 5. Newsletter Blast
+    # -------------------------------------------------------
+    print("\n[NEWSLETTER] Sending broadcast for", title, "...")
     newsletter_res = send_newsletter(title, gumroad_link)
 
-    # -----------------------------------------------------------
-    # 5) Funnel
-    # -----------------------------------------------------------
-    print("[FUNNEL] Creating landing page...")
+    # -------------------------------------------------------
+    # 6. Funnel Generation
+    # -------------------------------------------------------
+    print("\n[FUNNEL] Creating affiliate funnel for", title, "...")
     funnel_res = create_affiliate_funnel(title, gumroad_link)
 
-    # -----------------------------------------------------------
-    # 6) Marketplaces
-    # -----------------------------------------------------------
-    print("[MARKETPLACES] Publishing...")
+    # -------------------------------------------------------
+    # 7. Multi-Marketplace
+    # -------------------------------------------------------
+    print("\n[MARKETPLACES] Publishing", title, "to external networks...")
     marketplace_res = publish_to_marketplaces(local_zip, title)
 
-    print("\n🎉 MONETIZATION COMPLETE\n")
+    # -------------------------------------------------------
+    # Summary Log
+    # -------------------------------------------------------
+    print("\n🎉 MONETIZATION COMPLETE")
+    print("--------------------------------------")
+    print("Gumroad →", gumroad_res.get("status"))
+    print("Payhip →", payhip_res.get("status"))
+    print("Printify →", printify_res.get("status"))
+    print("Newsletter →", newsletter_res.get("status"))
+    print("Funnel →", funnel_res.get("status"))
+    print("Marketplaces →", marketplace_res.get("status"))
+    print("--------------------------------------\n")
 
     return {
         "gumroad": gumroad_res,
@@ -118,5 +137,5 @@ def run_all_streams_micro_engine(zip_path: str, template_code: str):
         "printify": printify_res,
         "newsletter": newsletter_res,
         "funnel": funnel_res,
-        "marketplaces": marketplace_res,
+        "marketplaces": marketplace_res
     }
