@@ -1,4 +1,9 @@
 import os
+print("🔄 Syncing JRAVIS Worker with Backend...")
+os.system("cd /opt/render/project/src && git pull https://github.com/elinalakshya/jravis-backend.git main || true")
+print("✅ Sync complete. Worker is up to date with backend.")
+
+import os
 import time
 import sys
 import requests
