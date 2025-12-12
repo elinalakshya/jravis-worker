@@ -1,4 +1,9 @@
 import os
+print("🔄 FORCE syncing worker with backend (GitHub)…")
+os.system("git fetch origin main && git reset --hard origin/main")
+print("✅ Worker is now synced with GitHub.")
+
+import os
 print("🔄 Syncing JRAVIS Worker with Backend...")
 os.system("cd /opt/render/project/src && git pull https://github.com/elinalakshya/jravis-backend.git main || true")
 print("✅ Sync complete. Worker is up to date with backend.")
@@ -105,7 +110,6 @@ def main():
     while True:
         run_cycle()
         time.sleep(2)
-
 
 if __name__ == "__main__":
     main()
