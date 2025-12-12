@@ -1,12 +1,32 @@
-import os
-print("🔄 FORCE syncing worker with backend (GitHub)…")
-os.system("git fetch origin main && git reset --hard origin/main")
-print("✅ Worker is now synced with GitHub.")
+# --- JRAVIS: robust auto-sync block (safe, idempotent) ---
+import os, time, sys, subprocess
 
-import os
-print("🔄 Syncing JRAVIS Worker with Backend...")
-os.system("cd /opt/render/project/src && git pull https://github.com/elinalakshya/jravis-backend.git main || true")
-print("✅ Sync complete. Worker is up to date with backend.")
+def robust_force_sync():
+    try:
+        print("🔄 JRAVIS worker: starting robust force-sync with GitHub...")
+        # prefer configured origin if valid
+        rc = subprocess.call(["git", "ls-remote", "origin", "HEAD"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if rc == 0:
+            print("🔎 origin found — fetching origin/main ...")
+            subprocess.check_call(["git", "fetch", "origin", "main"])
+            subprocess.check_call(["git", "reset", "--hard", "origin/main"])
+        else:
+            # fallback to direct fetch from GitHub URL
+            GITHUB_URL = "https://github.com/elinalakshya/jravis-backend.git"
+            print("⚠️ origin missing or not accessible — fetching directly from GitHub URL ...")
+            subprocess.check_call(["git", "fetch", GITHUB_URL, "main"])
+            subprocess.check_call(["git", "reset", "--hard", "FETCH_HEAD"])
+
+        # ensure git won't stop future pulls with divergent-branch hints
+        subprocess.call(["git", "config", "--local", "pull.rebase", "false"])
+        print("✅ Worker repo synced to GitHub main (hard reset).")
+    except Exception as e:
+        print("❌ Worker sync failed (continuing without abort). Error:", str(e))
+
+# Run sync quickly (non-blocking-ish)
+robust_force_sync()
+time.sleep(0.3)
+# --- end sync block ---
 
 import os
 import time
