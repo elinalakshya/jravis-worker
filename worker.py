@@ -1,3 +1,29 @@
+def download_zip(zip_path: str) -> str:
+    """
+    Downloads the ZIP from backend to local filesystem.
+    Returns local file path.
+    """
+    os.makedirs("factory_output", exist_ok=True)
+
+    filename = zip_path.split("/")[-1]
+    local_path = os.path.join("factory_output", filename)
+
+    if os.path.isfile(local_path):
+        return local_path  # already downloaded
+
+    url = f"{BACKEND}/{zip_path}"
+    print(f"⬇️ Downloading ZIP from {url}")
+
+    r = requests.get(url, stream=True)
+    r.raise_for_status()
+
+    with open(local_path, "wb") as f:
+        for chunk in r.iter_content(chunk_size=8192):
+            f.write(chunk)
+
+    print(f"✅ ZIP downloaded to {local_path}")
+    return local_path
+
 # =========================================================
 # JRAVIS WORKER — PRODUCTION VERSION
 # =========================================================
