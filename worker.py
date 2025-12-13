@@ -1,5 +1,5 @@
 # =========================================================
-# JRAVIS WORKER — STABLE PRODUCTION VERSION
+# JRAVIS WORKER — PRODUCTION STABLE VERSION
 # =========================================================
 
 import os
@@ -7,13 +7,6 @@ import sys
 import time
 import subprocess
 import requests
-
-# =========================================================
-# BACKEND CONFIG (must be defined early)
-# =========================================================
-BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com")
-WORKER_KEY = os.getenv("WORKER_API_KEY")
-HEADERS = {"X-API-KEY": WORKER_KEY} if WORKER_KEY else {}
 
 # =========================================================
 # GIT FORCE-SYNC (SAFE & IDEMPOTENT)
@@ -26,6 +19,7 @@ def robust_force_sync():
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+
         if rc == 0:
             print("🔎 origin found — syncing origin/main")
             subprocess.check_call(["git", "fetch", "origin", "main"])
@@ -40,7 +34,8 @@ def robust_force_sync():
         print("✅ Worker repo synced to GitHub main")
 
     except Exception as e:
-        print("❌ Worker sync failed (continuing):", e)
+        print("❌ Worker sync failed (continuing):", str(e))
+
 
 robust_force_sync()
 time.sleep(0.3)
@@ -51,8 +46,8 @@ time.sleep(0.3)
 BASE_DIR = os.getcwd()
 SRC_PATH = os.path.join(BASE_DIR, "src")
 sys.path.insert(0, SRC_PATH)
+
 print("🔧 SRC_PATH =", SRC_PATH)
-print("🔧 BACKEND =", BACKEND)
 
 # =========================================================
 # IMPORT ENGINE
@@ -60,12 +55,21 @@ print("🔧 BACKEND =", BACKEND)
 from unified_engine import run_all_streams_micro_engine
 
 # =========================================================
-# ZIP DOWNLOAD HELPER
+# BACKEND CONFIG
+# =========================================================
+BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com")
+WORKER_KEY = os.getenv("WORKER_API_KEY")
+
+HEADERS = {"X-API-KEY": WORKER_KEY} if WORKER_KEY else {}
+
+print("🔧 BACKEND =", BACKEND)
+
+# =========================================================
+# ZIP DOWNLOAD (✅ FIXED ENDPOINT)
 # =========================================================
 def download_zip(zip_path: str) -> str:
     """
-    Downloads the ZIP from backend to local filesystem.
-    Returns local file path.
+    Downloads ZIP from backend using secure API endpoint.
     """
     os.makedirs("factory_output", exist_ok=True)
 
@@ -73,12 +77,12 @@ def download_zip(zip_path: str) -> str:
     local_path = os.path.join("factory_output", filename)
 
     if os.path.isfile(local_path):
-        return local_path  # already downloaded
+        return local_path
 
-    url = f"{BACKEND}/{zip_path}"
+    url = f"{BACKEND}/api/factory/download/{filename}"
     print(f"⬇️ Downloading ZIP from {url}")
 
-    r = requests.get(url, stream=True, timeout=60)
+    r = requests.get(url, headers=HEADERS, stream=True, timeout=60)
     r.raise_for_status()
 
     with open(local_path, "wb") as f:
@@ -92,7 +96,7 @@ def download_zip(zip_path: str) -> str:
 # =========================================================
 # API HELPERS
 # =========================================================
-def api_post(path):
+def api_post(path: str):
     try:
         r = requests.post(f"{BACKEND}{path}", headers=HEADERS, timeout=30)
         return r.json() if r.status_code == 200 else None
@@ -101,7 +105,7 @@ def api_post(path):
         return None
 
 # =========================================================
-# JRAVIS MAIN CYCLE
+# JRAVIS WORK CYCLE
 # =========================================================
 def run_cycle():
     print("\n🔥 RUNNING CYCLE")
@@ -119,12 +123,12 @@ def run_cycle():
     name = task.get("name")
     zip_path = task.get("zip")
 
+    print("[Factory]", task)
+
     if not name or not zip_path:
-        print("❌ Invalid factory payload:", task)
+        print("❌ Invalid factory payload")
         time.sleep(5)
         return
-
-    print("[Factory]", task)
 
     # -------- GROWTH --------
     growth = api_post("/api/growth/evaluate")
@@ -145,16 +149,15 @@ def run_cycle():
     # -------- MONETIZE --------
     print("💰 Monetizing...")
 
-    local_zip = download_zip(zip_path)
-
-    print(
-        f"🔧 Engine Call: run_all_streams_micro_engine('{local_zip}', '{name}', '{BACKEND}')"
-    )
-
     try:
+        local_zip = download_zip(zip_path)
+        print(
+            f"🔧 Engine Call: run_all_streams_micro_engine('{local_zip}', '{name}', '{BACKEND}')"
+        )
         run_all_streams_micro_engine(local_zip, name, BACKEND)
+
     except Exception as e:
-        print("❌ Engine ERROR:", e)
+        print("❌ Monetization error:", e)
 
 # =========================================================
 # MAIN LOOP
