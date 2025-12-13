@@ -1,107 +1,128 @@
-# --- JRAVIS: robust auto-sync block (safe, idempotent) ---
-import os, time, sys, subprocess
+# =========================================================
+# JRAVIS WORKER — PRODUCTION VERSION
+# =========================================================
+
+import os
+import sys
+import time
+import subprocess
+import requests
+
+# =========================================================
+# GIT FORCE-SYNC (SAFE & IDEMPOTENT)
+# =========================================================
 
 def robust_force_sync():
     try:
         print("🔄 JRAVIS worker: starting robust force-sync with GitHub...")
-        # prefer configured origin if valid
-        rc = subprocess.call(["git", "ls-remote", "origin", "HEAD"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        rc = subprocess.call(
+            ["git", "ls-remote", "origin", "HEAD"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
         if rc == 0:
-            print("🔎 origin found — fetching origin/main ...")
+            print("🔎 origin found — syncing origin/main")
             subprocess.check_call(["git", "fetch", "origin", "main"])
             subprocess.check_call(["git", "reset", "--hard", "origin/main"])
         else:
-            # fallback to direct fetch from GitHub URL
             GITHUB_URL = "https://github.com/elinalakshya/jravis-backend.git"
-            print("⚠️ origin missing or not accessible — fetching directly from GitHub URL ...")
+            print("⚠️ origin missing — fetching directly from GitHub")
             subprocess.check_call(["git", "fetch", GITHUB_URL, "main"])
             subprocess.check_call(["git", "reset", "--hard", "FETCH_HEAD"])
 
-        # ensure git won't stop future pulls with divergent-branch hints
         subprocess.call(["git", "config", "--local", "pull.rebase", "false"])
-        print("✅ Worker repo synced to GitHub main (hard reset).")
-    except Exception as e:
-        print("❌ Worker sync failed (continuing without abort). Error:", str(e))
+        print("✅ Worker repo synced to GitHub main")
 
-# Run sync quickly (non-blocking-ish)
+    except Exception as e:
+        print("❌ Worker sync failed (continuing):", str(e))
+
+
 robust_force_sync()
 time.sleep(0.3)
-# --- end sync block ---
 
-import os
-import time
-import sys
-import requests
+# =========================================================
+# PATH SETUP
+# =========================================================
 
-# Ensure src path
-SRC_PATH = os.path.join(os.getcwd(), "src")
-sys.path.append(SRC_PATH)
+BASE_DIR = os.getcwd()
+SRC_PATH = os.path.join(BASE_DIR, "src")
+sys.path.insert(0, SRC_PATH)
 
 print("🔧 SRC_PATH =", SRC_PATH)
 
-# Import unified engine
+# =========================================================
+# IMPORT ENGINE
+# =========================================================
+
 from unified_engine import run_all_streams_micro_engine
 
-# Backend config
+# =========================================================
+# BACKEND CONFIG
+# =========================================================
+
 BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com")
 WORKER_KEY = os.getenv("WORKER_API_KEY")
 
 print("🔧 BACKEND =", BACKEND)
 
+HEADERS = {"X-API-KEY": WORKER_KEY} if WORKER_KEY else {}
 
-# ---------------------------
+# =========================================================
 # API HELPERS
-# ---------------------------
+# =========================================================
 
 def api_get(path):
     try:
-        r = requests.get(
-            f"{BACKEND}{path}",
-            headers={"X-API-KEY": WORKER_KEY},
-        )
+        r = requests.get(f"{BACKEND}{path}", headers=HEADERS, timeout=30)
         return r.json() if r.status_code == 200 else None
-    except:
+    except Exception as e:
+        print("❌ API GET error:", e)
         return None
 
 
 def api_post(path):
     try:
-        r = requests.post(
-            f"{BACKEND}{path}",
-            headers={"X-API-KEY": WORKER_KEY},
-        )
-        return r.json()
-    except:
+        r = requests.post(f"{BACKEND}{path}", headers=HEADERS, timeout=30)
+        return r.json() if r.status_code == 200 else None
+    except Exception as e:
+        print("❌ API POST error:", e)
         return None
 
-
-# ---------------------------
+# =========================================================
 # JRAVIS CYCLE
-# ---------------------------
+# =========================================================
 
 def run_cycle():
-    print("🔥 RUNNING CYCLE")
+    print("\n🔥 RUNNING CYCLE")
     print("--------------------------------")
 
+    # -------- FACTORY --------
     task = api_post("/api/factory/generate")
 
-    if not task or "name" not in task:
+    if not task or task.get("status") != "generated":
         print("❌ Template generation failed")
-        time.sleep(2)
+        print("📦 Factory response:", task)
+        time.sleep(5)
         return
 
-    name = task["name"]
-    zip_path = task["zip"]
+    name = task.get("name")
+    zip_path = task.get("zip")
 
     print("[Factory]", task)
 
-    # --- Growth ---
-    growth = api_post("/api/growth/evaluate")
+    if not name or not zip_path:
+        print("❌ Invalid factory payload")
+        time.sleep(5)
+        return
 
+    # -------- GROWTH --------
+    growth = api_post("/api/growth/evaluate")
     print("[Growth]", growth)
 
-    if not growth or isinstance(growth, dict) and "detail" in growth:
-        print("⚠️ Growth score invalid → Normal scale")
+    if not growth or "detail" in growth:
+        print("⚠️ Growth invalid → Normal scale")
         api_post(f"/api/factory/scale/{name}")
     else:
         if growth.get("winner"):
@@ -112,7 +133,7 @@ def run_cycle():
             print("➡️ Normal scale")
             api_post(f"/api/factory/scale/{name}")
 
-    # Monetize
+    # -------- MONETIZATION --------
     print("💰 Monetizing...")
     print(f"🔧 Engine Call: run_all_streams_micro_engine('{zip_path}', '{name}', '{BACKEND}')")
 
@@ -121,15 +142,26 @@ def run_cycle():
     except Exception as e:
         print("❌ Engine ERROR:", e)
 
+# =========================================================
+# MAIN LOOP
+# =========================================================
 
 def main():
-    print("🚀 WORKER ONLINE")
+    print("🚀 JRAVIS WORKER ONLINE")
 
     os.makedirs("factory_output", exist_ok=True)
 
     while True:
-        run_cycle()
-        time.sleep(2)
+        try:
+            run_cycle()
+            time.sleep(2)
+        except KeyboardInterrupt:
+            print("🛑 Worker stopped manually")
+            break
+        except Exception as e:
+            print("🔥 Worker loop error:", e)
+            time.sleep(5)
+
 
 if __name__ == "__main__":
     main()
