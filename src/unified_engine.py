@@ -53,37 +53,26 @@ def _infer_description_and_extracted_dir(config: Dict[str, Any]) -> (str, str):
     return description, extracted_dir
 
 def _call_run_publishers_safely(config: Dict[str, Any]) -> None:
-    try:
-        sig = inspect.signature(run_publishers)
-        param_len = len(sig.parameters)
-    except Exception:
-        param_len = 1
+    """
+    FINAL FIX:
+    Gumroad publisher expects exactly:
+        publish_to_gumroad(description, extracted_dir)
+    No config dict, no kwargs, no guessing.
+    """
+
+    description, extracted_dir = _infer_description_and_extracted_dir(config)
+
+    logger.info(
+        "Calling run_publishers with description='%s', extracted_dir='%s'",
+        description,
+        extracted_dir,
+    )
 
     try:
-        if param_len == 1:
-            run_publishers(config)
-            return
-        elif param_len >= 3:
-            description, extracted_dir = _infer_description_and_extracted_dir(config)
-            run_publishers(config, description, extracted_dir)
-            return
-        else:
-            try:
-                run_publishers(config)
-                return
-            except TypeError:
-                description, extracted_dir = _infer_description_and_extracted_dir(config)
-                run_publishers(config, description, extracted_dir)
-                return
-    except TypeError as te:
-        logger.warning("run_publishers TypeError on tried signature: %s", te)
+        run_publishers(description, extracted_dir)
+        logger.info("run_publishers SUCCESS")
     except Exception:
-        logger.exception("run_publishers raised an unexpected error")
-
-    try:
-        run_publishers(config=config)
-    except Exception:
-        logger.exception("All attempts to call run_publishers failed")
+        logger.exception("run_publishers FAILED with (description, extracted_dir)")
 
 def run_all_streams_micro_engine(*args, **kwargs) -> None:
     try:
