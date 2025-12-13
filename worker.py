@@ -1,3 +1,7 @@
+# =========================================================
+# JRAVIS WORKER — STREAMING GENERATE (FINAL)
+# =========================================================
+
 import os
 import sys
 import time
@@ -22,11 +26,11 @@ def run_cycle():
     print("\n🔥 RUNNING CYCLE")
     print("--------------------------------")
 
-    # 🔥 STREAM ZIP DIRECTLY
+    # 🔥 STREAM ZIP DIRECTLY (NO DOWNLOAD API)
     r = requests.post(
         f"{BACKEND}/api/factory/generate",
         headers=HEADERS,
-        timeout=60
+        timeout=60,
     )
 
     r.raise_for_status()
@@ -40,9 +44,9 @@ def run_cycle():
     with open(local_zip, "wb") as f:
         f.write(r.content)
 
-    print(f"✅ ZIP received: {local_zip}")
+    print(f"✅ ZIP STREAMED: {local_zip}")
 
-    # 🚀 MONETIZE
+    # 💰 MONETIZE
     run_all_streams_micro_engine(
         local_zip,
         template_name,
@@ -50,7 +54,7 @@ def run_cycle():
     )
 
 def main():
-    print("🚀 JRAVIS WORKER ONLINE")
+    print("🚀 JRAVIS WORKER ONLINE (STREAM MODE)")
 
     while True:
         try:
