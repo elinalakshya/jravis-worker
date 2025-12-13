@@ -159,14 +159,18 @@ def run_cycle():
             print("➡️ Normal scale")
             api_post(f"/api/factory/scale/{name}")
 
-    # -------- MONETIZATION --------
-    print("💰 Monetizing...")
-    print(f"🔧 Engine Call: run_all_streams_micro_engine('{zip_path}', '{name}', '{BACKEND}')")
+   # Monetize
+print("💰 Monetizing...")
 
-    try:
-        run_all_streams_micro_engine(zip_path, name, BACKEND)
-    except Exception as e:
-        print("❌ Engine ERROR:", e)
+# ⬇️ DOWNLOAD ZIP FROM BACKEND TO WORKER
+local_zip = download_zip(zip_path)
+
+print(f"🔧 Engine Call: run_all_streams_micro_engine('{local_zip}', '{name}', '{BACKEND}')")
+
+try:
+    run_all_streams_micro_engine(local_zip, name, BACKEND)
+except Exception as e:
+    print("❌ Engine ERROR:", e)
 
 # =========================================================
 # MAIN LOOP
