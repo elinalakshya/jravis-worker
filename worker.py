@@ -9,18 +9,19 @@ import subprocess
 # =========================================================
 # CONFIG
 # =========================================================
-BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com")
-WORKER_KEY = os.getenv("WORKER_API_KEY", "")
-HEADERS = {"X-API-KEY": WORKER_KEY} if WORKER_KEY else {}
+BACKEND = os.getenv(
+    "BACKEND_URL",
+    "https://jravis-backend.onrender.com"
+)
 
-BASE_DIR = os.getcwd()
-SRC_PATH = os.path.join(BASE_DIR, "src")
-os.makedirs("factory_output", exist_ok=True)
+# 🔒 SAFETY: auto-fix missing scheme
+if BACKEND.startswith("//"):
+    BACKEND = "https:" + BACKEND
 
-sys.path.insert(0, SRC_PATH)
+if not BACKEND.startswith("http"):
+    BACKEND = "https://" + BACKEND
 
 print("🔧 BACKEND =", BACKEND)
-print("🔧 SRC_PATH =", SRC_PATH)
 
 # =========================================================
 # IMPORT ENGINE
