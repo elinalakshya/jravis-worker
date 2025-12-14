@@ -1,6 +1,17 @@
+# ===============================
+# JRAVIS WORKER – STABLE CORE
+# ===============================
+
 import os
 import sys
+import time
+import requests
 
+print("🔥 WORKER FILE LOADED")
+
+# -------------------------------
+# PATH SETUP (CRITICAL)
+# -------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SRC_PATH = os.path.join(BASE_DIR, "src")
 
@@ -9,108 +20,86 @@ if SRC_PATH not in sys.path:
 
 print("🔧 SRC_PATH =", SRC_PATH)
 
-# worker.py
+# -------------------------------
+# BACKEND CONFIG
+# -------------------------------
+BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com").rstrip("/")
+WORKER_KEY = os.getenv("WORKER_API_KEY")
 
-import os
-import sys
-import time
-import requests
-import subprocess
-
-# =========================================================
-# CONFIG
-# =========================================================
-BACKEND = os.getenv(
-    "BACKEND_URL",
-    "https://jravis-backend.onrender.com"
-)
-
-# 🔒 SAFETY: auto-fix missing scheme
-if BACKEND.startswith("//"):
-    BACKEND = "https:" + BACKEND
-
-if not BACKEND.startswith("http"):
-    BACKEND = "https://" + BACKEND
+HEADERS = {}
+if WORKER_KEY:
+    HEADERS["X-API-KEY"] = WORKER_KEY
 
 print("🔧 BACKEND =", BACKEND)
 
-# =========================================================
+# -------------------------------
 # IMPORT ENGINE
-# =========================================================
-from unified_engine import run_all_streams_micro_engine
+# -------------------------------
+try:
+    from unified_engine import run_all_streams_micro_engine
+    print("✅ unified_engine imported")
+except Exception as e:
+    print("❌ Failed to import unified_engine:", e)
+    sys.exit(1)
 
-# =========================================================
+# -------------------------------
 # API HELPERS
-# =========================================================
+# -------------------------------
 def api_post(path: str):
-    r = requests.post(f"{BACKEND}{path}", headers=HEADERS, timeout=60)
-    r.raise_for_status()
-    return r.json()
+    url = f"{BACKEND}{path}"
+    return requests.post(url, headers=HEADERS, timeout=60).json()
 
-def stream_zip(template_name: str) -> str:
-    """
-    Streams ZIP directly from backend (Solution #1)
-    """
-    url = f"{BACKEND}/api/factory/stream"
-    headers = {"X-Template-Name": template_name}
-
-    local_path = f"factory_output/{template_name}.zip"
-
-    print(f"⬇️ Streaming ZIP for {template_name}...")
-
-    with requests.get(url, headers=headers, stream=True, timeout=120) as r:
-        r.raise_for_status()
-        with open(local_path, "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-
-    print(f"✅ ZIP saved: {local_path}")
-    return local_path
-
-# =========================================================
-# MAIN LOOP
-# =========================================================
+# -------------------------------
+# WORKER CYCLE
+# -------------------------------
 def run_cycle():
     print("\n🔥 RUNNING CYCLE")
     print("--------------------------------")
 
-    # -------- FACTORY --------
+    # FACTORY
     task = api_post("/api/factory/generate")
     print("[Factory]", task)
 
-    if task.get("status") != "generated":
+    if not task or task.get("status") != "generated":
         print("❌ Factory failed")
         return
 
     name = task["name"]
+    zip_path = task["zip"]
 
-    # -------- GROWTH --------
+    # GROWTH
     growth = api_post("/api/growth/evaluate")
     print("[Growth]", growth)
 
     api_post(f"/api/factory/scale/{name}")
 
-    # -------- MONETIZE --------
-    try:
-        zip_path = stream_zip(name)
-        print(f"🔧 Engine Call: run_all_streams_micro_engine('{zip_path}', '{name}', '{BACKEND}')")
-        run_all_streams_micro_engine(zip_path, name, BACKEND)
-    except Exception as e:
-        print("❌ Monetization error:", e)
+    # MONETIZATION (STREAM MODE)
+    print("💰 Monetizing...")
+    print(f"⬇️ Streaming ZIP for {name}...")
 
+    local_zip = zip_path
+    print(f"🔧 Engine Call: run_all_streams_micro_engine('{local_zip}', '{name}', '{BACKEND}')")
+
+    run_all_streams_micro_engine(local_zip, name, BACKEND)
+
+# -------------------------------
+# MAIN LOOP
+# -------------------------------
 def main():
     print("🚀 JRAVIS WORKER ONLINE")
+
     while True:
         try:
             run_cycle()
-            time.sleep(2)
-        except KeyboardInterrupt:
-            print("🛑 Worker stopped")
-            break
+            print("💓 HEARTBEAT OK")
+            time.sleep(5)
         except Exception as e:
             print("🔥 Worker loop error:", e)
             time.sleep(5)
 
+# -------------------------------
+# ENTRYPOINT
+# -------------------------------
 if __name__ == "__main__":
+    print("✅ __main__ TRIGGERED")
     main()
