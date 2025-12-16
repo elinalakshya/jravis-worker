@@ -1,123 +1,119 @@
-# ============================================
-# JRAVIS UNIFIED ENGINE – STEP 5 (INCOME SAFE)
-# ============================================
-
+import os
+import zipfile
+import hashlib
+import json
 import time
-import traceback
-
-# ------------------------------------------------
-# IMPORT PUBLISHER ENGINES
-# ------------------------------------------------
-# Each engine MUST expose a function like:
-# run_<platform>_engine(zip_path, template_name)
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from publishers.gumroad_engine import run_gumroad_engine
-from publishers.payhip_engine import run_payhip_engine
-from publishers.shopify_engine import run_shopify_engine
-# add more engines here as needed
+# add others later
 
+BASE_OUTPUT = "factory_output"
+EXTRACT_DIR = os.path.join(BASE_OUTPUT, "extracted")
+PUBLISH_DIR = os.path.join(BASE_OUTPUT, "publish_ready")
+STATE_FILE = os.path.join(BASE_OUTPUT, ".jravis_state.json")
 
-# ------------------------------------------------
-# RETRY + BACKOFF WRAPPER
-# ------------------------------------------------
-def run_with_retry(
-    fn,
-    *,
-    label="task",
-    max_retries=3,
-    base_delay=2
-):
-    """
-    Executes fn() with retry + exponential backoff.
-    Never raises exception to caller.
-    """
+os.makedirs(EXTRACT_DIR, exist_ok=True)
+os.makedirs(PUBLISH_DIR, exist_ok=True)
 
-    attempt = 0
+# -------------------------------
+# STATE (STEP 5.3 PREP)
+# -------------------------------
+def load_state():
+    if os.path.exists(STATE_FILE):
+        with open(STATE_FILE, "r") as f:
+            return json.load(f)
+    return {}
 
-    while attempt <= max_retries:
+def save_state(state):
+    with open(STATE_FILE, "w") as f:
+        json.dump(state, f, indent=2)
+
+# -------------------------------
+# UTILS
+# -------------------------------
+def sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+def extract_zip(zip_path, out_dir):
+    with zipfile.ZipFile(zip_path, "r") as z:
+        z.extractall(out_dir)
+
+def zip_folder(folder_path, out_zip):
+    with zipfile.ZipFile(out_zip, "w", zipfile.ZIP_DEFLATED) as z:
+        for root, _, files in os.walk(folder_path):
+            for file in files:
+                full = os.path.join(root, file)
+                arc = os.path.relpath(full, folder_path)
+                z.write(full, arc)
+
+# -------------------------------
+# RETRY
+# -------------------------------
+def run_with_retry(fn, label, retries=3):
+    for i in range(retries):
         try:
-            result = fn()
-            return {
-                "status": "success",
-                "attempts": attempt + 1,
-                "result": result
-            }
-
+            return fn()
         except Exception as e:
-            attempt += 1
+            print(f"⚠️ [{label}] attempt {i+1}/{retries} failed:", e)
+            time.sleep(2)
+    raise RuntimeError(f"{label} failed after retries")
 
-            if attempt > max_retries:
-                return {
-                    "status": "failed",
-                    "attempts": attempt,
-                    "error": str(e),
-                    "trace": traceback.format_exc()
-                }
-
-            delay = base_delay * (2 ** (attempt - 1))
-            print(
-                f"⚠️ [{label}] failed "
-                f"(attempt {attempt}/{max_retries}) "
-                f"→ retrying in {delay}s"
-            )
-            time.sleep(delay)
-
-
-# ------------------------------------------------
-# UNIFIED ORCHESTRATOR
-# ------------------------------------------------
+# -------------------------------
+# ENGINE
+# -------------------------------
 def run_all_streams_micro_engine(zip_path, template_name, backend_url=None):
-    """
-    Main orchestration engine.
-    One failure NEVER blocks others.
-    Returns structured result object.
-    """
+    print(f"🚀 unified_engine START for {template_name}")
 
-    print("\n🚀 unified_engine START")
-    print(f"📦 Template : {template_name}")
-    print(f"📁 ZIP      : {zip_path}")
+    state = load_state()
+    zip_hash = sha256(zip_path)
+
+    if zip_hash not in state:
+        state[zip_hash] = {}
+
+    # -------------------------------
+    # EXTRACT
+    # -------------------------------
+    extract_path = os.path.join(EXTRACT_DIR, template_name)
+    os.makedirs(extract_path, exist_ok=True)
+
+    extract_zip(zip_path, extract_path)
+    print("📂 ZIP extracted to", extract_path)
+
+    # -------------------------------
+    # RE-ZIP FOR PUBLISHING
+    # -------------------------------
+    publish_zip = os.path.join(PUBLISH_DIR, f"{template_name}.zip")
+    zip_folder(extract_path, publish_zip)
+    print("📦 Publish-ready ZIP =", publish_zip)
+
+    # -------------------------------
+    # PUBLISHERS (PARALLEL SAFE)
+    # -------------------------------
+    publishers = {
+        "gumroad": lambda: run_gumroad_engine(publish_zip, template_name),
+    }
 
     results = {}
 
-    # -----------------------------
-    # GUMROAD
-    # -----------------------------
-    results["gumroad"] = run_with_retry(
-        lambda: run_gumroad_engine(zip_path, template_name),
-        label="gumroad"
-    )
+    with ThreadPoolExecutor(max_workers=len(publishers)) as pool:
+        futures = {}
 
-    # -----------------------------
-    # PAYHIP
-    # -----------------------------
-    results["payhip"] = run_with_retry(
-        lambda: run_payhip_engine(zip_path, template_name),
-        label="payhip"
-    )
+        for name, fn in publishers.items():
+            if state[zip_hash].get(name):
+                print(f"⏭️ {name} already completed, skipping")
+                continue
+            futures[pool.submit(run_with_retry, fn, name)] = name
 
-    # -----------------------------
-    # SHOPIFY
-    # -----------------------------
-    results["shopify"] = run_with_retry(
-        lambda: run_shopify_engine(zip_path, template_name),
-        label="shopify"
-    )
+        for future in as_completed(futures):
+            name = futures[future]
+            future.result()
+            state[zip_hash][name] = True
+            results[name] = "success"
 
-    # ------------------------------------------------
-    # SUMMARY LOG
-    # ------------------------------------------------
-    print("\n📊 ENGINE SUMMARY")
-    for platform, info in results.items():
-        print(
-            f"- {platform}: "
-            f"{info['status']} "
-            f"(attempts={info.get('attempts')})"
-        )
-
-    # ------------------------------------------------
-    # FINAL RESULT (for STEP 5.3 / 5.4)
-    # ------------------------------------------------
-    return {
-        "template": template_name,
-        "results": results
-    }
+    save_state(state)
+    print("📊 ENGINE COMPLETE:", results)
