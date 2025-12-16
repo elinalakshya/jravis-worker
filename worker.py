@@ -87,7 +87,16 @@ def run_cycle():
     print("--------------------------------")
 
     # 1️⃣ FACTORY GENERATE
-    task = api_post("/api/factory/generate")
+   resp = requests.post(f"{BACKEND}/api/factory/generate", headers=HEADERS, stream=True)
+name = resp.headers.get("X-Template-Name")
+
+local_zip = os.path.join(FACTORY_OUTPUT_DIR, f"{name}.zip")
+
+with open(local_zip, "wb") as f:
+    for chunk in resp.iter_content(chunk_size=8192):
+        if chunk:
+            f.write(chunk)
+
     print("[Factory]", task)
 
     if not task or task.get("status") != "generated":
