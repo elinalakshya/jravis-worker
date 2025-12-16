@@ -1,13 +1,14 @@
 # ===============================
-# JRAVIS WORKER – STREAM MODE FINAL
+# JRAVIS WORKER – STREAM STABLE FINAL
 # ===============================
 
 import os
 import sys
 import time
+import uuid
 import requests
 
-print("🚨 WORKER VERSION = STREAM-FILENAME-MODE")
+print("🚨 WORKER VERSION = STREAM-UUID-MODE")
 
 # -------------------------------
 # PATH SETUP
@@ -61,7 +62,7 @@ def run_cycle():
     print("\n🔥 RUNNING CYCLE")
     print("--------------------------------")
 
-    # 1️⃣ STREAM ZIP FROM BACKEND
+    # 1️⃣ REQUEST STREAMED ZIP
     resp = requests.post(
         f"{BACKEND}/api/factory/generate",
         headers=HEADERS,
@@ -71,22 +72,15 @@ def run_cycle():
 
     resp.raise_for_status()
 
-    # 2️⃣ EXTRACT FILENAME FROM CONTENT-DISPOSITION
-    cd = resp.headers.get("Content-Disposition", "")
-    name = None
-
-    if "filename=" in cd:
-        name = cd.split("filename=")[-1].strip().strip('"').replace(".zip", "")
-
-    if not name:
-        raise RuntimeError("Unable to determine template name from Content-Disposition")
+    # 2️⃣ WORKER-GENERATED TEMPLATE ID (PROXY SAFE)
+    template_name = f"template-{uuid.uuid4().hex[:6]}"
 
     local_zip = os.path.join(
         FACTORY_OUTPUT_DIR,
-        f"{name}.zip"
+        f"{template_name}.zip"
     )
 
-    print("📦 TEMPLATE NAME =", name)
+    print("📦 TEMPLATE NAME =", template_name)
     print("📦 SAVING ZIP TO =", local_zip)
 
     # 3️⃣ SAVE ZIP LOCALLY
@@ -100,10 +94,10 @@ def run_cycle():
 
     print("✅ ZIP SAVED")
 
-    # 4️⃣ RUN UNIFIED ENGINE
+    # 4️⃣ RUN UNIFIED ENGINE (RETRY + ISOLATION)
     run_all_streams_micro_engine(
         local_zip,
-        name,
+        template_name,
         BACKEND
     )
 
@@ -111,7 +105,7 @@ def run_cycle():
 # MAIN LOOP
 # -------------------------------
 def main():
-    print("🚀 JRAVIS WORKER ONLINE (STREAM MODE)")
+    print("🚀 JRAVIS WORKER ONLINE (STREAM + UUID MODE)")
 
     while True:
         try:
