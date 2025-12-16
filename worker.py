@@ -71,10 +71,20 @@ def run_cycle():
 
     resp.raise_for_status()
 
-    name = resp.headers.get("X-Template-Name")
+    # Extract filename from Content-Disposition
+cd = resp.headers.get("Content-Disposition", "")
 
-    if not name:
-        raise RuntimeError("Missing X-Template-Name header")
+name = None
+if "filename=" in cd:
+    name = cd.split("filename=")[-1].strip('"').replace(".zip", "")
+
+if not name:
+    raise RuntimeError("Unable to determine template name from response")
+
+local_zip = os.path.join(
+    FACTORY_OUTPUT_DIR,
+    f"{name}.zip"
+)
 
     local_zip = os.path.join(
         FACTORY_OUTPUT_DIR,
