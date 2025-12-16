@@ -20,6 +20,14 @@ if SRC_PATH not in sys.path:
 
 print("🔧 SRC_PATH =", SRC_PATH)
 
+# ==============================
+# FACTORY OUTPUT (CRITICAL)
+# ==============================
+FACTORY_OUTPUT_DIR = os.path.join(BASE_DIR, "factory_output")
+os.makedirs(FACTORY_OUTPUT_DIR, exist_ok=True)
+
+print("📁 FACTORY_OUTPUT_DIR =", FACTORY_OUTPUT_DIR)
+
 # -------------------------------
 # BACKEND CONFIG
 # -------------------------------
