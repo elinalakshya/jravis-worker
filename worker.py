@@ -1,5 +1,5 @@
 # ===============================
-# JRAVIS WORKER – STREAM STABLE FINAL
+# JRAVIS WORKER – STREAM ZIP SAFE
 # ===============================
 
 import os
@@ -8,7 +8,7 @@ import time
 import uuid
 import requests
 
-print("🚨 WORKER VERSION = STREAM-UUID-MODE")
+print("🚨 WORKER VERSION = STREAM-ZIP-VALIDATED")
 
 # -------------------------------
 # PATH SETUP
@@ -56,13 +56,23 @@ except Exception as e:
     sys.exit(1)
 
 # -------------------------------
+# ZIP VALIDATION
+# -------------------------------
+def is_valid_zip(path):
+    try:
+        with open(path, "rb") as f:
+            signature = f.read(4)
+            return signature == b"PK\x03\x04"
+    except Exception:
+        return False
+
+# -------------------------------
 # WORKER CYCLE
 # -------------------------------
 def run_cycle():
     print("\n🔥 RUNNING CYCLE")
     print("--------------------------------")
 
-    # 1️⃣ REQUEST STREAMED ZIP
     resp = requests.post(
         f"{BACKEND}/api/factory/generate",
         headers=HEADERS,
@@ -72,29 +82,43 @@ def run_cycle():
 
     resp.raise_for_status()
 
-    # 2️⃣ WORKER-GENERATED TEMPLATE ID (PROXY SAFE)
-    template_name = f"template-{uuid.uuid4().hex[:6]}"
+    content_type = resp.headers.get("Content-Type", "")
+    print("📨 RESPONSE Content-Type =", content_type)
 
-    local_zip = os.path.join(
-        FACTORY_OUTPUT_DIR,
-        f"{template_name}.zip"
-    )
+    template_name = f"template-{uuid.uuid4().hex[:6]}"
+    local_zip = os.path.join(FACTORY_OUTPUT_DIR, f"{template_name}.zip")
 
     print("📦 TEMPLATE NAME =", template_name)
     print("📦 SAVING ZIP TO =", local_zip)
 
-    # 3️⃣ SAVE ZIP LOCALLY
     with open(local_zip, "wb") as f:
         for chunk in resp.iter_content(chunk_size=8192):
             if chunk:
                 f.write(chunk)
 
     if not os.path.exists(local_zip):
-        raise FileNotFoundError("ZIP save failed")
+        print("❌ ZIP file missing after save")
+        return
 
-    print("✅ ZIP SAVED")
+    # -------------------------------
+    # ZIP VALIDATION GATE
+    # -------------------------------
+    if not is_valid_zip(local_zip):
+        print("❌ INVALID ZIP FILE RECEIVED")
+        print("⚠️ Skipping this cycle safely")
 
-    # 4️⃣ RUN UNIFIED ENGINE (RETRY + ISOLATION)
+        # Debug: show first bytes
+        with open(local_zip, "rb") as f:
+            preview = f.read(200)
+            print("🧪 FILE PREVIEW:", preview)
+
+        return
+
+    print("✅ ZIP VALIDATED")
+
+    # -------------------------------
+    # RUN UNIFIED ENGINE
+    # -------------------------------
     run_all_streams_micro_engine(
         local_zip,
         template_name,
@@ -105,7 +129,7 @@ def run_cycle():
 # MAIN LOOP
 # -------------------------------
 def main():
-    print("🚀 JRAVIS WORKER ONLINE (STREAM + UUID MODE)")
+    print("🚀 JRAVIS WORKER ONLINE (STREAM ZIP SAFE)")
 
     while True:
         try:
