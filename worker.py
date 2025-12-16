@@ -1,5 +1,5 @@
 # ===============================
-# JRAVIS WORKER – STEP 4 FINAL
+# JRAVIS WORKER – STREAM MODE (FINAL)
 # ===============================
 
 import os
@@ -7,7 +7,7 @@ import sys
 import time
 import requests
 
-print("🚨 WORKER VERSION = STEP4-FINAL-NAME-ONLY")
+print("🚨 WORKER VERSION = STEP4-STREAM-MODE")
 
 # -------------------------------
 # PATH SETUP
@@ -21,7 +21,7 @@ if SRC_PATH not in sys.path:
 print("🔧 SRC_PATH =", SRC_PATH)
 
 # -------------------------------
-# FACTORY OUTPUT DIR
+# OUTPUT DIR
 # -------------------------------
 FACTORY_OUTPUT_DIR = os.path.join(BASE_DIR, "factory_output")
 os.makedirs(FACTORY_OUTPUT_DIR, exist_ok=True)
@@ -55,55 +55,26 @@ except Exception as e:
     sys.exit(1)
 
 # -------------------------------
-# API HELPERS
-# -------------------------------
-def api_post(path: str):
-    url = f"{BACKEND}{path}"
-    return requests.post(url, headers=HEADERS, timeout=60).json()
-
-
-def download_zip(name: str, local_zip_path: str):
-    """
-    Downloads ZIP using backend API:
-    GET /api/factory/download/{name}
-    """
-    url = f"{BACKEND}/api/factory/download/{name}"
-    print(f"⬇️ Downloading ZIP from API: {url}")
-
-    with requests.get(url, headers=HEADERS, stream=True, timeout=120) as r:
-        r.raise_for_status()
-        with open(local_zip_path, "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-
-    print(f"✅ ZIP downloaded to: {local_zip_path}")
-
-# -------------------------------
 # WORKER CYCLE
 # -------------------------------
 def run_cycle():
     print("\n🔥 RUNNING CYCLE")
     print("--------------------------------")
 
-    # 1️⃣ FACTORY GENERATE
-   resp = requests.post(f"{BACKEND}/api/factory/generate", headers=HEADERS, stream=True)
-name = resp.headers.get("X-Template-Name")
+    # 1️⃣ CALL FACTORY (STREAM ZIP)
+    resp = requests.post(
+        f"{BACKEND}/api/factory/generate",
+        headers=HEADERS,
+        stream=True,
+        timeout=120
+    )
 
-local_zip = os.path.join(FACTORY_OUTPUT_DIR, f"{name}.zip")
+    resp.raise_for_status()
 
-with open(local_zip, "wb") as f:
-    for chunk in resp.iter_content(chunk_size=8192):
-        if chunk:
-            f.write(chunk)
+    name = resp.headers.get("X-Template-Name")
 
-    print("[Factory]", task)
-
-    if not task or task.get("status") != "generated":
-        print("❌ Factory failed")
-        return
-
-    name = task["name"]
+    if not name:
+        raise RuntimeError("Missing X-Template-Name header")
 
     local_zip = os.path.join(
         FACTORY_OUTPUT_DIR,
@@ -111,22 +82,19 @@ with open(local_zip, "wb") as f:
     )
 
     print("📦 TEMPLATE NAME =", name)
-    print("📦 LOCAL ZIP =", local_zip)
+    print("📦 SAVING ZIP TO =", local_zip)
 
-    # 2️⃣ DOWNLOAD ZIP (API ONLY)
-    download_zip(name, local_zip)
+    with open(local_zip, "wb") as f:
+        for chunk in resp.iter_content(chunk_size=8192):
+            if chunk:
+                f.write(chunk)
 
     if not os.path.exists(local_zip):
-        raise FileNotFoundError(f"ZIP missing after download: {local_zip}")
+        raise FileNotFoundError("ZIP save failed")
 
-    # 3️⃣ GROWTH
-    growth = api_post("/api/growth/evaluate")
-    print("[Growth]", growth)
+    print("✅ ZIP SAVED")
 
-    api_post(f"/api/factory/scale/{name}")
-
-    # 4️⃣ MONETIZATION
-    print("💰 Monetizing...")
+    # 2️⃣ MONETIZATION
     run_all_streams_micro_engine(
         local_zip,
         name,
@@ -137,7 +105,7 @@ with open(local_zip, "wb") as f:
 # MAIN LOOP
 # -------------------------------
 def main():
-    print("🚀 JRAVIS WORKER ONLINE")
+    print("🚀 JRAVIS WORKER ONLINE (STREAM MODE)")
 
     while True:
         try:
