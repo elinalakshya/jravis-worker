@@ -61,6 +61,22 @@ def api_post(path: str):
     url = f"{BACKEND}{path}"
     return requests.post(url, headers=HEADERS, timeout=60).json()
 
+def download_zip(remote_zip_path: str, local_zip_path: str):
+    """
+    Downloads ZIP from backend to local worker filesystem
+    """
+    url = f"{BACKEND}/{remote_zip_path.lstrip('/')}"
+    print(f"⬇️ Downloading ZIP from: {url}")
+
+    with requests.get(url, headers=HEADERS, stream=True, timeout=120) as r:
+        r.raise_for_status()
+        with open(local_zip_path, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+
+    print(f"✅ ZIP downloaded to: {local_zip_path}")
+
 # -------------------------------
 # WORKER CYCLE
 # -------------------------------
@@ -68,7 +84,7 @@ def run_cycle():
     print("\n🔥 RUNNING CYCLE")
     print("--------------------------------")
 
-    # 1️⃣ FACTORY
+    # 1️⃣ FACTORY (BACKEND)
     task = api_post("/api/factory/generate")
     print("[Factory]", task)
 
@@ -77,28 +93,33 @@ def run_cycle():
         return
 
     name = task["name"]
+    remote_zip = task["zip"]  # backend path
 
-    # 🚨 DO NOT TRUST REMOTE ZIP PATH
-    # Always rebuild locally
+    # 2️⃣ PREP LOCAL ZIP PATH
     local_zip = os.path.join(
         FACTORY_OUTPUT_DIR,
         f"{name}.zip"
     )
 
-    print("📦 EXPECTED ZIP PATH =", local_zip)
+    print("📦 REMOTE ZIP =", remote_zip)
+    print("📦 LOCAL ZIP  =", local_zip)
 
+    # 3️⃣ DOWNLOAD ZIP FROM BACKEND
+    download_zip(remote_zip, local_zip)
+
+    # 4️⃣ HARD VERIFY
     if not os.path.exists(local_zip):
         raise FileNotFoundError(
-            f"❌ ZIP NOT FOUND. Factory did not create ZIP: {local_zip}"
+            f"❌ ZIP download failed: {local_zip}"
         )
 
-    # 2️⃣ GROWTH
+    # 5️⃣ GROWTH
     growth = api_post("/api/growth/evaluate")
     print("[Growth]", growth)
 
     api_post(f"/api/factory/scale/{name}")
 
-    # 3️⃣ MONETIZATION
+    # 6️⃣ MONETIZATION
     print("💰 Monetizing...")
     print(f"⬇️ Using ZIP for {name}")
 
