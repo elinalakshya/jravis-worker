@@ -1,5 +1,5 @@
 # ===============================
-# JRAVIS WORKER – STREAM MODE (FINAL)
+# JRAVIS WORKER – STREAM MODE FINAL
 # ===============================
 
 import os
@@ -7,7 +7,7 @@ import sys
 import time
 import requests
 
-print("🚨 WORKER VERSION = STEP4-STREAM-MODE")
+print("🚨 WORKER VERSION = STREAM-FILENAME-MODE")
 
 # -------------------------------
 # PATH SETUP
@@ -61,7 +61,7 @@ def run_cycle():
     print("\n🔥 RUNNING CYCLE")
     print("--------------------------------")
 
-    # 1️⃣ CALL FACTORY (STREAM ZIP)
+    # 1️⃣ STREAM ZIP FROM BACKEND
     resp = requests.post(
         f"{BACKEND}/api/factory/generate",
         headers=HEADERS,
@@ -71,20 +71,15 @@ def run_cycle():
 
     resp.raise_for_status()
 
-    # Extract filename from Content-Disposition
-cd = resp.headers.get("Content-Disposition", "")
+    # 2️⃣ EXTRACT FILENAME FROM CONTENT-DISPOSITION
+    cd = resp.headers.get("Content-Disposition", "")
+    name = None
 
-name = None
-if "filename=" in cd:
-    name = cd.split("filename=")[-1].strip('"').replace(".zip", "")
+    if "filename=" in cd:
+        name = cd.split("filename=")[-1].strip().strip('"').replace(".zip", "")
 
-if not name:
-    raise RuntimeError("Unable to determine template name from response")
-
-local_zip = os.path.join(
-    FACTORY_OUTPUT_DIR,
-    f"{name}.zip"
-)
+    if not name:
+        raise RuntimeError("Unable to determine template name from Content-Disposition")
 
     local_zip = os.path.join(
         FACTORY_OUTPUT_DIR,
@@ -94,6 +89,7 @@ local_zip = os.path.join(
     print("📦 TEMPLATE NAME =", name)
     print("📦 SAVING ZIP TO =", local_zip)
 
+    # 3️⃣ SAVE ZIP LOCALLY
     with open(local_zip, "wb") as f:
         for chunk in resp.iter_content(chunk_size=8192):
             if chunk:
@@ -104,7 +100,7 @@ local_zip = os.path.join(
 
     print("✅ ZIP SAVED")
 
-    # 2️⃣ MONETIZATION
+    # 4️⃣ RUN UNIFIED ENGINE
     run_all_streams_micro_engine(
         local_zip,
         name,
