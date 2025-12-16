@@ -1,79 +1,30 @@
-# unified_engine.py — FINAL, signature-safe
+import os
+from src.publishing_engine import run_publishers
 
-import logging
-import traceback
-import inspect
-from typing import Dict, Any
+def run_all_streams_micro_engine(zip_path: str, title: str, backend: str):
+    """
+    Central execution point for monetization.
+    This MUST ALWAYS publish if API keys exist.
+    """
 
-logger = logging.getLogger(__name__)
+    print("🚀 unified_engine: START")
+    print(f"📦 ZIP     : {zip_path}")
+    print(f"📝 TITLE   : {title}")
+    print(f"🌐 BACKEND : {backend}")
 
-# ---- IMPORT PUBLISHER ----
-try:
-    from src.publishing_engine import run_publishers
-except Exception:
-    def run_publishers(*args, **kwargs):
-        logger.info("stub run_publishers called with args=%s kwargs=%s", args, kwargs)
+    description = f"Auto-generated digital product: {title}"
 
-# ---- OTHER HANDLERS ----
-try:
-    from src.some_other_engine import run_other_handlers
-except Exception:
-    def run_other_handlers(config: Dict[str, Any]):
-        return
-
-def _infer_description_and_extracted_dir(config: Dict[str, Any]):
-    name = config.get("template_name") or config.get("description") or ""
-    zip_path = config.get("zip_path", "")
-    extracted = zip_path.split("/")[-1].replace(".zip", "") if zip_path else name
-    return name, extracted
-
-def _call_run_publishers_safely(description: str, extracted_dir: str, config: Dict[str, Any]):
     try:
-        sig = inspect.signature(run_publishers)
-        params = len(sig.parameters)
-
-        logger.info("run_publishers expects %d parameters", params)
-
-        if params == 1:
-            run_publishers(description)
-        elif params == 2:
-            run_publishers(description, extracted_dir)
-        else:
-            # fallback for future expansion
-            run_publishers(description, extracted_dir, config)
-
-    except TypeError as te:
-        logger.error("run_publishers TypeError: %s", te)
-    except Exception:
-        logger.error("run_publishers failed:\n%s", traceback.format_exc())
-
-def run_all_streams_micro_engine(zip_path, template_name, backend_url):
-    print("🚀 unified_engine START")
-    print("📦 ZIP =", zip_path)
-    print("🏷️ TEMPLATE =", template_name)
-
-    title = f"Template {template_name}"
-    description = f"Auto-generated template {template_name}"
-
-    print("📢 CALLING run_publishers")
-    run_publishers(title, description, zip_path)
-    print("📢 PUBLISHING FINISHED")
-
-    print("✅ unified_engine END")
-
-        # 🔥 HARD-CORRECT CALL
-        run_publishers(description, description, file_path)
-
-        run_other_handlers({
-            "zip_path": zip_path,
-            "template_name": template_name,
-            "backend_url": backend_url,
-        })
-
-        logger.info("run_all_streams_micro_engine completed successfully")
-
-    except Exception:
-        logger.error(
-            "run_all_streams_micro_engine FAILED:\n%s",
-            traceback.format_exc(),
+        results = run_publishers(
+            title=title,
+            description=description,
+            zip_path=zip_path
         )
+
+        print("✅ Publishing completed")
+        print(results)
+        return results
+
+    except Exception as e:
+        print("❌ Publishing failed:", e)
+        return {"status": "failed", "error": str(e)}
