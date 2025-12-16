@@ -31,7 +31,11 @@ print("📁 FACTORY_OUTPUT_DIR =", FACTORY_OUTPUT_DIR)
 # -------------------------------
 # BACKEND CONFIG
 # -------------------------------
-BACKEND = os.getenv("BACKEND_URL", "https://jravis-backend.onrender.com").rstrip("/")
+BACKEND = os.getenv(
+    "BACKEND_URL",
+    "https://jravis-backend.onrender.com"
+).rstrip("/")
+
 WORKER_KEY = os.getenv("WORKER_API_KEY")
 
 HEADERS = {}
@@ -64,7 +68,7 @@ def run_cycle():
     print("\n🔥 RUNNING CYCLE")
     print("--------------------------------")
 
-    # FACTORY
+    # 1️⃣ FACTORY
     task = api_post("/api/factory/generate")
     print("[Factory]", task)
 
@@ -73,22 +77,41 @@ def run_cycle():
         return
 
     name = task["name"]
-    zip_path = task["zip"]
 
-    # GROWTH
+    # 🚨 DO NOT TRUST REMOTE ZIP PATH
+    # Always rebuild locally
+    local_zip = os.path.join(
+        FACTORY_OUTPUT_DIR,
+        f"{name}.zip"
+    )
+
+    print("📦 EXPECTED ZIP PATH =", local_zip)
+
+    if not os.path.exists(local_zip):
+        raise FileNotFoundError(
+            f"❌ ZIP NOT FOUND. Factory did not create ZIP: {local_zip}"
+        )
+
+    # 2️⃣ GROWTH
     growth = api_post("/api/growth/evaluate")
     print("[Growth]", growth)
 
     api_post(f"/api/factory/scale/{name}")
 
-    # MONETIZATION (STREAM MODE)
+    # 3️⃣ MONETIZATION
     print("💰 Monetizing...")
-    print(f"⬇️ Streaming ZIP for {name}...")
+    print(f"⬇️ Using ZIP for {name}")
 
-    local_zip = zip_path
-    print(f"🔧 Engine Call: run_all_streams_micro_engine('{local_zip}', '{name}', '{BACKEND}')")
+    print(
+        f"🔧 Engine Call: run_all_streams_micro_engine("
+        f"'{local_zip}', '{name}', '{BACKEND}')"
+    )
 
-    run_all_streams_micro_engine(local_zip, name, BACKEND)
+    run_all_streams_micro_engine(
+        local_zip,
+        name,
+        BACKEND
+    )
 
 # -------------------------------
 # MAIN LOOP
