@@ -1,5 +1,5 @@
 # ===============================
-# JRAVIS WORKER – STABLE CORE
+# JRAVIS WORKER – STEP 4 FINAL
 # ===============================
 
 import os
@@ -7,10 +7,10 @@ import sys
 import time
 import requests
 
-print("🔥 WORKER FILE LOADED")
+print("🚨 WORKER VERSION = STEP4-FINAL-NAME-ONLY")
 
 # -------------------------------
-# PATH SETUP (CRITICAL)
+# PATH SETUP
 # -------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SRC_PATH = os.path.join(BASE_DIR, "src")
@@ -20,9 +20,9 @@ if SRC_PATH not in sys.path:
 
 print("🔧 SRC_PATH =", SRC_PATH)
 
-# ==============================
-# FACTORY OUTPUT (CRITICAL)
-# ==============================
+# -------------------------------
+# FACTORY OUTPUT DIR
+# -------------------------------
 FACTORY_OUTPUT_DIR = os.path.join(BASE_DIR, "factory_output")
 os.makedirs(FACTORY_OUTPUT_DIR, exist_ok=True)
 
@@ -61,7 +61,12 @@ def api_post(path: str):
     url = f"{BACKEND}{path}"
     return requests.post(url, headers=HEADERS, timeout=60).json()
 
+
 def download_zip(name: str, local_zip_path: str):
+    """
+    Downloads ZIP using backend API:
+    GET /api/factory/download/{name}
+    """
     url = f"{BACKEND}/api/factory/download/{name}"
     print(f"⬇️ Downloading ZIP from API: {url}")
 
@@ -81,7 +86,7 @@ def run_cycle():
     print("\n🔥 RUNNING CYCLE")
     print("--------------------------------")
 
-    # 1️⃣ FACTORY (BACKEND)
+    # 1️⃣ FACTORY GENERATE
     task = api_post("/api/factory/generate")
     print("[Factory]", task)
 
@@ -91,40 +96,28 @@ def run_cycle():
 
     name = task["name"]
 
-local_zip = os.path.join(
-    FACTORY_OUTPUT_DIR,
-    f"{name}.zip"
-)
+    local_zip = os.path.join(
+        FACTORY_OUTPUT_DIR,
+        f"{name}.zip"
+    )
 
-print("📦 TEMPLATE NAME =", name)
-print("📦 LOCAL ZIP  =", local_zip)
+    print("📦 TEMPLATE NAME =", name)
+    print("📦 LOCAL ZIP =", local_zip)
 
-download_zip(name, local_zip)
+    # 2️⃣ DOWNLOAD ZIP (API ONLY)
+    download_zip(name, local_zip)
 
-    # 3️⃣ DOWNLOAD ZIP FROM BACKEND
-    download_zip(remote_zip, local_zip)
-
-    # 4️⃣ HARD VERIFY
     if not os.path.exists(local_zip):
-        raise FileNotFoundError(
-            f"❌ ZIP download failed: {local_zip}"
-        )
+        raise FileNotFoundError(f"ZIP missing after download: {local_zip}")
 
-    # 5️⃣ GROWTH
+    # 3️⃣ GROWTH
     growth = api_post("/api/growth/evaluate")
     print("[Growth]", growth)
 
     api_post(f"/api/factory/scale/{name}")
 
-    # 6️⃣ MONETIZATION
+    # 4️⃣ MONETIZATION
     print("💰 Monetizing...")
-    print(f"⬇️ Using ZIP for {name}")
-
-    print(
-        f"🔧 Engine Call: run_all_streams_micro_engine("
-        f"'{local_zip}', '{name}', '{BACKEND}')"
-    )
-
     run_all_streams_micro_engine(
         local_zip,
         name,
@@ -150,5 +143,4 @@ def main():
 # ENTRYPOINT
 # -------------------------------
 if __name__ == "__main__":
-    print("✅ __main__ TRIGGERED")
     main()
