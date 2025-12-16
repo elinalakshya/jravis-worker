@@ -90,16 +90,16 @@ def run_cycle():
         return
 
     name = task["name"]
-    remote_zip = task["zip"]  # backend path
 
-    # 2️⃣ PREP LOCAL ZIP PATH
-    local_zip = os.path.join(
-        FACTORY_OUTPUT_DIR,
-        f"{name}.zip"
-    )
+local_zip = os.path.join(
+    FACTORY_OUTPUT_DIR,
+    f"{name}.zip"
+)
 
-    print("📦 REMOTE ZIP =", remote_zip)
-    print("📦 LOCAL ZIP  =", local_zip)
+print("📦 TEMPLATE NAME =", name)
+print("📦 LOCAL ZIP  =", local_zip)
+
+download_zip(name, local_zip)
 
     # 3️⃣ DOWNLOAD ZIP FROM BACKEND
     download_zip(remote_zip, local_zip)
