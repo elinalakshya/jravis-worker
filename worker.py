@@ -61,12 +61,9 @@ def api_post(path: str):
     url = f"{BACKEND}{path}"
     return requests.post(url, headers=HEADERS, timeout=60).json()
 
-def download_zip(remote_zip_path: str, local_zip_path: str):
-    """
-    Downloads ZIP from backend to local worker filesystem
-    """
-    url = f"{BACKEND}/{remote_zip_path.lstrip('/')}"
-    print(f"⬇️ Downloading ZIP from: {url}")
+def download_zip(name: str, local_zip_path: str):
+    url = f"{BACKEND}/api/factory/download/{name}"
+    print(f"⬇️ Downloading ZIP from API: {url}")
 
     with requests.get(url, headers=HEADERS, stream=True, timeout=120) as r:
         r.raise_for_status()
