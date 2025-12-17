@@ -1,33 +1,27 @@
-# File: src/engines/gumroad_engine.py
-from typing import Dict, Any
-from src.openai_helper import openai_helper
+import os
+import requests
 
-def run_gumroad_engine() -> Dict[str, Any]:
-    """
-    Generates a high-quality digital product optimized for Gumroad.
-    """
-    system_prompt = (
-        "You are a specialized product creator for Gumroad. "
-        "Your goal is to generate a premium digital product that can sell independently."
-    )
+GUMROAD_API_KEY = os.getenv("GUMROAD_API_KEY")
 
-    user_prompt = (
-        "Generate a full digital product package with:\n"
-        "- Title\n"
-        "- Strong Hook\n"
-        "- Product Description\n"
-        "- 10 Key Features\n"
-        "- Target Audience\n"
-        "- 3 Bonus Materials\n"
-        "- Short Promo Pitch\n"
-        "Make it high-value, unique, and market-ready."
-    )
+def publish_to_gumroad(title: str, file_url: str, price_usd: int = 9):
+    if not GUMROAD_API_KEY:
+        raise RuntimeError("GUMROAD_API_KEY missing")
 
-    result = openai_helper.generate_text(system_prompt, user_prompt)
-
-    payload = {
-        "title": "Gumroad Product",
-        "content": result,
+    url = "https://api.gumroad.com/v2/products"
+    headers = {
+        "Authorization": f"Bearer {GUMROAD_API_KEY}"
     }
 
-    return openai_helper.format_payload("gumroad", payload)
+    payload = {
+        "name": title,
+        "price": price_usd * 100,   # cents
+        "description": f"Auto-published by JRAVIS\n\nDownload: {file_url}",
+        "content": file_url,
+        "published": True
+    }
+
+    r = requests.post(url, headers=headers, data=payload, timeout=60)
+    if r.status_code != 200:
+        raise RuntimeError(f"Gumroad error {r.status_code}: {r.text}")
+
+    return r.json()
