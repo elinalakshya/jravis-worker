@@ -8,20 +8,29 @@ def publish_to_gumroad(title: str, file_url: str, price_usd: int = 9):
         raise RuntimeError("GUMROAD_API_KEY missing")
 
     url = "https://api.gumroad.com/v2/products"
+
     headers = {
         "Authorization": f"Bearer {GUMROAD_API_KEY}"
     }
 
-    payload = {
+    data = {
         "name": title,
-        "price": price_usd * 100,   # cents
-        "description": f"Auto-published by JRAVIS\n\nDownload: {file_url}",
-        "content": file_url,
-        "published": True
+        "price": price_usd * 100,  # cents
+        "description": (
+            f"{title}\n\n"
+            f"Instant download via secure link:\n{file_url}\n\n"
+            "Auto-published by JRAVIS"
+        ),
+        "published": True,
+        "external_url": file_url
     }
 
-    r = requests.post(url, headers=headers, data=payload, timeout=60)
+    r = requests.post(url, headers=headers, data=data, timeout=60)
+
     if r.status_code != 200:
-        raise RuntimeError(f"Gumroad error {r.status_code}: {r.text}")
+        raise RuntimeError(
+            f"Gumroad product create failed "
+            f"[{r.status_code}]: {r.text}"
+        )
 
     return r.json()
