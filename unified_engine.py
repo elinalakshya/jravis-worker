@@ -1,119 +1,98 @@
+# ===============================
+# JRAVIS UNIFIED ENGINE
+# STREAM → R2 → GUMROAD (LIVE)
+# ===============================
+
 import os
+import uuid
 import zipfile
-import hashlib
-import json
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import requests
 
-from publishers.gumroad_engine import run_gumroad_engine
-# add others later
-
-BASE_OUTPUT = "factory_output"
-EXTRACT_DIR = os.path.join(BASE_OUTPUT, "extracted")
-PUBLISH_DIR = os.path.join(BASE_OUTPUT, "publish_ready")
-STATE_FILE = os.path.join(BASE_OUTPUT, ".jravis_state.json")
-
-os.makedirs(EXTRACT_DIR, exist_ok=True)
-os.makedirs(PUBLISH_DIR, exist_ok=True)
+from src.engines.gumroad_engine import publish_to_gumroad
 
 # -------------------------------
-# STATE (STEP 5.3 PREP)
+# ENV CONFIG
 # -------------------------------
-def load_state():
-    if os.path.exists(STATE_FILE):
-        with open(STATE_FILE, "r") as f:
-            return json.load(f)
-    return {}
+R2_ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID")
+R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID")
+R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY")
+R2_BUCKET = os.getenv("R2_BUCKET")
+R2_ENDPOINT = os.getenv("R2_ENDPOINT")
+R2_PUBLIC_BASE_URL = os.getenv("R2_PUBLIC_BASE_URL")
 
-def save_state(state):
-    with open(STATE_FILE, "w") as f:
-        json.dump(state, f, indent=2)
-
-# -------------------------------
-# UTILS
-# -------------------------------
-def sha256(path):
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-def extract_zip(zip_path, out_dir):
-    with zipfile.ZipFile(zip_path, "r") as z:
-        z.extractall(out_dir)
-
-def zip_folder(folder_path, out_zip):
-    with zipfile.ZipFile(out_zip, "w", zipfile.ZIP_DEFLATED) as z:
-        for root, _, files in os.walk(folder_path):
-            for file in files:
-                full = os.path.join(root, file)
-                arc = os.path.relpath(full, folder_path)
-                z.write(full, arc)
+if not all([
+    R2_ACCOUNT_ID,
+    R2_ACCESS_KEY_ID,
+    R2_SECRET_ACCESS_KEY,
+    R2_BUCKET,
+    R2_ENDPOINT,
+    R2_PUBLIC_BASE_URL
+]):
+    raise RuntimeError("❌ Missing R2 environment variables")
 
 # -------------------------------
-# RETRY
+# R2 UPLOAD (S3 COMPATIBLE)
 # -------------------------------
-def run_with_retry(fn, label, retries=3):
-    for i in range(retries):
-        try:
-            return fn()
-        except Exception as e:
-            print(f"⚠️ [{label}] attempt {i+1}/{retries} failed:", e)
-            time.sleep(2)
-    raise RuntimeError(f"{label} failed after retries")
+def upload_to_r2(local_zip_path: str, object_name: str) -> str:
+    """
+    Upload ZIP to Cloudflare R2 and return public URL
+    """
+    import boto3
+
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=R2_ENDPOINT,
+        aws_access_key_id=R2_ACCESS_KEY_ID,
+        aws_secret_access_key=R2_SECRET_ACCESS_KEY,
+        region_name="auto"
+    )
+
+    s3.upload_file(
+        Filename=local_zip_path,
+        Bucket=R2_BUCKET,
+        Key=object_name,
+        ExtraArgs={
+            "ContentType": "application/zip"
+        }
+    )
+
+    public_url = f"{R2_PUBLIC_BASE_URL}/{object_name}"
+    return public_url
 
 # -------------------------------
-# ENGINE
+# ZIP VALIDATION
 # -------------------------------
-def run_all_streams_micro_engine(zip_path, template_name, backend_url=None):
+def validate_zip(zip_path: str):
+    if not zipfile.is_zipfile(zip_path):
+        raise RuntimeError("❌ Invalid ZIP file")
+
+# -------------------------------
+# MAIN ENTRY
+# -------------------------------
+def run_all_streams_micro_engine(zip_path: str, template_name: str, backend_url: str):
     print(f"🚀 unified_engine START for {template_name}")
 
-    state = load_state()
-    zip_hash = sha256(zip_path)
+    if not os.path.exists(zip_path):
+        raise FileNotFoundError(f"ZIP not found: {zip_path}")
 
-    if zip_hash not in state:
-        state[zip_hash] = {}
+    validate_zip(zip_path)
 
-    # -------------------------------
-    # EXTRACT
-    # -------------------------------
-    extract_path = os.path.join(EXTRACT_DIR, template_name)
-    os.makedirs(extract_path, exist_ok=True)
+    # Generate unique object name
+    object_name = f"{template_name}.zip"
 
-    extract_zip(zip_path, extract_path)
-    print("📂 ZIP extracted to", extract_path)
+    print("☁️ Uploading ZIP to R2...")
+    r2_url = upload_to_r2(zip_path, object_name)
+    print(f"✅ R2 Upload OK → {r2_url}")
 
-    # -------------------------------
-    # RE-ZIP FOR PUBLISHING
-    # -------------------------------
-    publish_zip = os.path.join(PUBLISH_DIR, f"{template_name}.zip")
-    zip_folder(extract_path, publish_zip)
-    print("📦 Publish-ready ZIP =", publish_zip)
+    # ---------------------------
+    # PUBLISH TO GUMROAD
+    # ---------------------------
+    print("💰 Publishing to Gumroad...")
+    result = publish_to_gumroad(
+        title=f"{template_name} Digital Asset",
+        file_url=r2_url,
+        price_usd=9
+    )
 
-    # -------------------------------
-    # PUBLISHERS (PARALLEL SAFE)
-    # -------------------------------
-    publishers = {
-        "gumroad": lambda: run_gumroad_engine(publish_zip, template_name),
-    }
-
-    results = {}
-
-    with ThreadPoolExecutor(max_workers=len(publishers)) as pool:
-        futures = {}
-
-        for name, fn in publishers.items():
-            if state[zip_hash].get(name):
-                print(f"⏭️ {name} already completed, skipping")
-                continue
-            futures[pool.submit(run_with_retry, fn, name)] = name
-
-        for future in as_completed(futures):
-            name = futures[future]
-            future.result()
-            state[zip_hash][name] = True
-            results[name] = "success"
-
-    save_state(state)
-    print("📊 ENGINE COMPLETE:", results)
+    print("📊 ENGINE COMPLETE:", result)
+    return result
