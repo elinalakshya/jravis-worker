@@ -1,43 +1,65 @@
+# src/engines/gumroad_engine.py
+
 import os
 import requests
+import time
 
 GUMROAD_API_KEY = os.getenv("GUMROAD_API_KEY")
-GUMROAD_PRODUCT_ID = os.getenv("GUMROAD_PRODUCT_ID")
+PRODUCT_ID = os.getenv("GUMROAD_PRODUCT_ID")
 
-GUMROAD_BASE = "https://api.gumroad.com/v2"
+BASE_URL = "https://api.gumroad.com/v2"
+
+HEADERS = {
+    "Authorization": f"Bearer {GUMROAD_API_KEY}"
+}
+
+class GumroadError(Exception):
+    pass
 
 
-def update_gumroad_product(zip_path: str, title: str, description: str):
-    if not GUMROAD_API_KEY or not GUMROAD_PRODUCT_ID:
-        raise Exception("Missing Gumroad API key or Product ID")
+def upload_file_to_product(zip_path: str, title: str):
+    if not PRODUCT_ID:
+        raise GumroadError("GUMROAD_PRODUCT_ID is missing")
 
-    # 1️⃣ Update product metadata
-    meta_resp = requests.put(
-        f"{GUMROAD_BASE}/products/{GUMROAD_PRODUCT_ID}",
-        data={
-            "access_token": GUMROAD_API_KEY,
-            "name": title,
-            "description": description,
-        },
-        timeout=60,
-    )
+    print(f"📦 Updating Gumroad product → {PRODUCT_ID}")
+    print(f"📤 Upload source = {zip_path}")
 
-    if not meta_resp.ok:
-        raise Exception(f"Metadata update failed: {meta_resp.text}")
-
-    # 2️⃣ Upload new file (this REPLACES existing file)
+    # 1️⃣ Upload / replace file
     with open(zip_path, "rb") as f:
-        file_resp = requests.post(
-            f"{GUMROAD_BASE}/products/{GUMROAD_PRODUCT_ID}/files",
-            data={"access_token": GUMROAD_API_KEY},
-            files={"file": f},
-            timeout=300,
+        files = {
+            "file": f
+        }
+
+        data = {
+            "product_id": PRODUCT_ID
+        }
+
+        r = requests.post(
+            f"{BASE_URL}/products/{PRODUCT_ID}/files",
+            headers=HEADERS,
+            files=files,
+            data=data,
+            timeout=60
         )
 
-    if not file_resp.ok:
-        raise Exception(f"File upload failed: {file_resp.text}")
+    if r.status_code != 200:
+        raise GumroadError(f"File upload failed: {r.text}")
 
-    return {
-        "status": "success",
-        "product_id": GUMROAD_PRODUCT_ID,
+    # 2️⃣ Update product name / description (optional but clean)
+    payload = {
+        "name": title,
+        "description": f"Auto-updated content by JRAVIS\n\nLast update: {time.ctime()}"
     }
+
+    r2 = requests.put(
+        f"{BASE_URL}/products/{PRODUCT_ID}",
+        headers=HEADERS,
+        data=payload,
+        timeout=30
+    )
+
+    if r2.status_code != 200:
+        raise GumroadError(f"Product update failed: {r2.text}")
+
+    print("✅ Gumroad product updated successfully")
+    return {"gumroad": "success"}
