@@ -1,40 +1,61 @@
 import os
-from engines.gumroad_engine import create_gumroad_product
+import uuid
 
+from engines.gumroad_engine import update_gumroad_content_url
+from engines.r2_engine import upload_file_to_r2
+
+
+# REQUIRED ENV VARS
+PRODUCT_ID = os.getenv("GUMROAD_PRODUCT_ID")
 R2_PUBLIC_BASE_URL = os.getenv("R2_PUBLIC_BASE_URL")
 
+if not PRODUCT_ID:
+    raise RuntimeError("❌ GUMROAD_PRODUCT_ID not set")
 
-def run_all_streams_micro_engine(template_name: str, zip_path: str):
+if not R2_PUBLIC_BASE_URL:
+    raise RuntimeError("❌ R2_PUBLIC_BASE_URL not set")
+
+
+def run_all_streams_micro_engine(zip_path: str, template_name: str):
     """
-    Unified publishing engine
+    FINAL FLOW:
+    1. Upload ZIP to R2
+    2. Generate public content_url
+    3. Update Gumroad product content_url
     """
 
     print(f"🚀 unified_engine START for {template_name}")
-
-    if not R2_PUBLIC_BASE_URL:
-        raise RuntimeError("R2_PUBLIC_BASE_URL not set")
-
-    # Build public asset URL
-    content_url = f"{R2_PUBLIC_BASE_URL}/{template_name}.zip"
-
     print("☁️ Using R2 asset")
-    print(f"🔗 CONTENT URL = {content_url}")
 
-    # Create Gumroad product
-    print("🛒 Creating Gumroad product...")
-    result = create_gumroad_product(
-        title=template_name,
-        content_url=content_url,
-        description=f"Auto-generated digital product: {template_name}"
+    # -------------------------------------------------
+    # STEP 1 — Upload ZIP to R2
+    # -------------------------------------------------
+    object_key = os.path.basename(zip_path)
+
+    upload_file_to_r2(
+        local_path=zip_path,
+        object_key=object_key
     )
 
-    print("✅ Gumroad product created")
-    print(f"🆔 Product ID: {result['product_id']}")
-    print(f"🔗 Product URL: {result['url']}")
+    content_url = f"{R2_PUBLIC_BASE_URL}/{object_key}"
+
+    print("🔗 CONTENT URL =", content_url)
+    print("🛒 Gumroad Product ID =", PRODUCT_ID)
+
+    # -------------------------------------------------
+    # STEP 2 — Update Gumroad product
+    # -------------------------------------------------
+    print("🛒 Updating Gumroad product content_url")
+
+    update_gumroad_content_url(
+        PRODUCT_ID,
+        content_url
+    )
+
+    print("✅ Gumroad product updated successfully")
 
     return {
-        "status": "published",
-        "platform": "gumroad",
-        "product_id": result["product_id"],
-        "url": result["url"]
+        "status": "success",
+        "product_id": PRODUCT_ID,
+        "content_url": content_url
     }
