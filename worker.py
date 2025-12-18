@@ -122,7 +122,6 @@ def run_cycle():
     run_all_streams_micro_engine(
         local_zip,
         template_name,
-        BACKEND
     )
 
 # -------------------------------
