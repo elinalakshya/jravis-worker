@@ -1,34 +1,29 @@
 import os
 import requests
 
-GUMROAD_API_KEY = os.getenv("GUMROAD_API_KEY")
+GUMROAD_API = "https://api.gumroad.com/v2/products"
 
-if not GUMROAD_API_KEY:
-    raise RuntimeError("❌ GUMROAD_API_KEY not set")
+def create_gumroad_product(title: str, content_url: str, price_usd: int = 9):
+    api_key = os.environ["GUMROAD_API_KEY"]
 
-API_BASE = "https://api.gumroad.com/v2"
-
-
-def update_gumroad_content_url(product_id: str, content_url: str):
-    """
-    Update content_url of an EXISTING Gumroad product
-    """
-
-    url = f"{API_BASE}/products/{product_id}"
-
-    headers = {
-        "Authorization": f"Bearer {GUMROAD_API_KEY}"
+    payload = {
+        "access_token": api_key,
+        "name": title,
+        "price": price_usd * 100,   # cents
+        "content_url": content_url,
+        "published": True
     }
 
-    data = {
-        "content_url": content_url
-    }
+    print("🛒 Creating Gumroad product...")
 
-    resp = requests.put(url, headers=headers, data=data, timeout=30)
+    r = requests.post(GUMROAD_API, data=payload, timeout=30)
 
-    if resp.status_code != 200:
-        raise RuntimeError(
-            f"Gumroad API error [{resp.status_code}]: {resp.text}"
-        )
+    if r.status_code != 200:
+        raise Exception(f"Gumroad create failed [{r.status_code}]: {r.text}")
 
-    return resp.json()
+    product = r.json()["product"]
+
+    print("🆔 Gumroad Product ID =", product["id"])
+    print("🔗 Product URL =", product["short_url"])
+
+    return product
