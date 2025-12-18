@@ -2,38 +2,42 @@ import os
 import requests
 
 GUMROAD_API_KEY = os.getenv("GUMROAD_API_KEY")
+GUMROAD_PRODUCT_ID = os.getenv("GUMROAD_PRODUCT_ID")
+
+if not GUMROAD_API_KEY:
+    raise RuntimeError("❌ GUMROAD_API_KEY missing")
+
+if not GUMROAD_PRODUCT_ID:
+    raise RuntimeError("❌ GUMROAD_PRODUCT_ID missing")
 
 
-def upload_file_to_product(product_id: str, zip_path: str):
+def update_gumroad_content_url(content_url: str):
     """
-    Correct Gumroad API:
-    POST /products/{product_id}/files
+    Updates content_url of an existing Gumroad product.
+    NO uploads. NO product creation.
     """
 
-    if not os.path.exists(zip_path):
-        raise FileNotFoundError(f"ZIP not found: {zip_path}")
+    url = f"https://api.gumroad.com/v2/products/{GUMROAD_PRODUCT_ID}"
 
-    url = f"https://api.gumroad.com/v2/products/{product_id}/files"
-
-    headers = {
-        "Authorization": f"Bearer {GUMROAD_API_KEY}"
+    payload = {
+        "access_token": GUMROAD_API_KEY,
+        "content_url": content_url
     }
 
-    files = {
-        "file": open(zip_path, "rb")
-    }
+    print("🛒 Updating Gumroad product")
+    print(f"📦 PRODUCT ID = {GUMROAD_PRODUCT_ID}")
+    print(f"🔁 Setting content_url = {content_url}")
 
-    response = requests.post(
-        url,
-        headers=headers,
-        files=files,
-        timeout=60
-    )
+    response = requests.put(url, data=payload, timeout=30)
 
-    if response.status_code not in (200, 201):
+    if response.status_code != 200:
         raise RuntimeError(
-            f"Gumroad upload failed [{response.status_code}]: {response.text}"
+            f"Gumroad update failed: {response.status_code} {response.text}"
         )
 
-    print("✅ Gumroad file uploaded successfully")
-    return "success"
+    print("✅ Gumroad content_url updated successfully")
+
+    return {
+        "status": "success",
+        "content_url": content_url
+    }
