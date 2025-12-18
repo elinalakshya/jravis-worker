@@ -1,54 +1,29 @@
-# ===============================
-# JRAVIS UNIFIED ENGINE (FINAL)
-# UPDATE-ONLY GUMROAD MODE
-# ===============================
-
 import os
-import traceback
+from engines.gumroad_engine import update_gumroad_content_url
 
-from engines.gumroad_engine import upload_file_to_product
+R2_PUBLIC_BASE_URL = os.getenv("R2_PUBLIC_BASE_URL")
+
+if not R2_PUBLIC_BASE_URL:
+    raise RuntimeError("❌ R2_PUBLIC_BASE_URL missing")
 
 
-def run_all_streams_micro_engine(zip_path: str, template_name: str, backend_url: str):
+def run_all_streams_micro_engine(template_name: str, zip_path: str):
     """
-    JRAVIS execution core
-    - Uses EXISTING Gumroad product
-    - Uploads new ZIP to same product
-    - Fully automated
+    FINAL CONTENT_URL MODE
+    - ZIP already uploaded to R2 by worker
+    - We only update Gumroad content_url
     """
 
     print(f"🚀 unified_engine START for {template_name}")
 
-    # ---- BASIC VALIDATION ----
-    if not os.path.exists(zip_path):
-        raise FileNotFoundError(f"ZIP not found: {zip_path}")
+    filename = os.path.basename(zip_path)
+    content_url = f"{R2_PUBLIC_BASE_URL}/{filename}"
 
-    product_id = os.getenv("GUMROAD_PRODUCT_ID")
-    if not product_id:
-        raise RuntimeError("❌ GUMROAD_PRODUCT_ID not set in environment")
+    print("☁️ Using R2 public asset")
+    print(f"🔗 CONTENT URL = {content_url}")
 
-    results = {}
+    result = update_gumroad_content_url(content_url)
 
-    # ===============================
-    # GUMROAD UPDATE (NO CREATE)
-    # ===============================
-    try:
-        print(f"📦 Updating Gumroad product → {product_id}")
-        print(f"📤 Upload source = {zip_path}")
+    print("📊 ENGINE COMPLETE:", result)
 
-        # ✅ POSITIONAL CALL (CRITICAL FIX)
-        result = upload_file_to_product(
-            product_id,
-            zip_path
-        )
-
-        results["gumroad"] = result
-        print("✅ Gumroad product updated successfully")
-
-    except Exception as e:
-        print("❌ Gumroad update failed")
-        traceback.print_exc()
-        raise RuntimeError(f"gumroad failed: {e}")
-
-    print(f"📊 ENGINE COMPLETE: {results}")
-    return results
+    return result
