@@ -2,34 +2,42 @@ import os
 import requests
 
 GUMROAD_API_KEY = os.getenv("GUMROAD_API_KEY")
+GUMROAD_PRODUCT_ID = os.getenv("GUMROAD_PRODUCT_ID")
 
-def publish_to_gumroad(title: str, file_url: str, price_usd: int = 9):
-    if not GUMROAD_API_KEY:
-        raise RuntimeError("GUMROAD_API_KEY missing")
+GUMROAD_BASE = "https://api.gumroad.com/v2"
 
-    url = "https://api.gumroad.com/v2/products"
 
-    headers = {
-        "Authorization": f"Bearer {GUMROAD_API_KEY}",
-        "User-Agent": "JRAVIS/1.0 (https://gumroad.com)",
-        "Accept": "application/json",
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
+def update_gumroad_product(zip_path: str, title: str, description: str):
+    if not GUMROAD_API_KEY or not GUMROAD_PRODUCT_ID:
+        raise Exception("Missing Gumroad API key or Product ID")
 
-    data = {
-        "name": title,
-        "price": price_usd * 100,
-        "description": f"{title}\n\nDownload:\n{file_url}",
-        "published": "true",
-        "external_url": file_url
-    }
+    # 1️⃣ Update product metadata
+    meta_resp = requests.put(
+        f"{GUMROAD_BASE}/products/{GUMROAD_PRODUCT_ID}",
+        data={
+            "access_token": GUMROAD_API_KEY,
+            "name": title,
+            "description": description,
+        },
+        timeout=60,
+    )
 
-    r = requests.post(url, headers=headers, data=data, timeout=60)
+    if not meta_resp.ok:
+        raise Exception(f"Metadata update failed: {meta_resp.text}")
 
-    if r.status_code != 200:
-        raise RuntimeError(
-            f"Gumroad API blocked request "
-            f"[{r.status_code}]: {r.text[:300]}"
+    # 2️⃣ Upload new file (this REPLACES existing file)
+    with open(zip_path, "rb") as f:
+        file_resp = requests.post(
+            f"{GUMROAD_BASE}/products/{GUMROAD_PRODUCT_ID}/files",
+            data={"access_token": GUMROAD_API_KEY},
+            files={"file": f},
+            timeout=300,
         )
 
-    return r.json()
+    if not file_resp.ok:
+        raise Exception(f"File upload failed: {file_resp.text}")
+
+    return {
+        "status": "success",
+        "product_id": GUMROAD_PRODUCT_ID,
+    }
