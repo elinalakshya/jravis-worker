@@ -1,40 +1,19 @@
 import os
 import boto3
 
-R2_ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID")
-R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID")
-R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY")
-R2_BUCKET = os.getenv("R2_BUCKET")
-
-if not all([
-    R2_ACCOUNT_ID,
-    R2_ACCESS_KEY_ID,
-    R2_SECRET_ACCESS_KEY,
-    R2_BUCKET
-]):
-    raise RuntimeError("❌ R2 credentials not fully set")
-
-
-def upload_file_to_r2(local_path: str, object_key: str):
-    """
-    Upload file to Cloudflare R2 using S3-compatible API
-    """
-
-    endpoint_url = f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-
+def upload_to_r2(local_file_path: str, object_name: str) -> str:
     s3 = boto3.client(
         "s3",
-        endpoint_url=endpoint_url,
-        aws_access_key_id=R2_ACCESS_KEY_ID,
-        aws_secret_access_key=R2_SECRET_ACCESS_KEY,
+        endpoint_url=f"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com",
+        aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
+        aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
         region_name="auto"
     )
 
-    s3.upload_file(
-        local_path,
-        R2_BUCKET,
-        object_key,
-        ExtraArgs={"ACL": "public-read"}
-    )
+    bucket = os.environ["R2_BUCKET"]
+    s3.upload_file(local_file_path, bucket, object_name)
 
-    print(f"☁️ Uploaded to R2 → {object_key}")
+    public_url = f"{os.environ['R2_PUBLIC_BASE_URL']}/{object_name}"
+    print("☁️ Uploaded to R2 →", object_name)
+
+    return public_url
