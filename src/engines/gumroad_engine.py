@@ -4,29 +4,59 @@ import requests
 GUMROAD_API_KEY = os.getenv("GUMROAD_API_KEY")
 GUMROAD_API_BASE = "https://api.gumroad.com/v2"
 
-def update_gumroad_content_url(product_id: str, content_url: str):
+DEFAULT_PRICE = int(os.getenv("GUMROAD_PRICE", "9"))  # USD
+DEFAULT_CURRENCY = os.getenv("GUMROAD_CURRENCY", "usd")
+
+
+class GumroadError(Exception):
+    pass
+
+
+def create_gumroad_product(
+    title: str,
+    content_url: str,
+    description: str = "",
+    price: int = DEFAULT_PRICE,
+    currency: str = DEFAULT_CURRENCY,
+):
     """
-    Updates an existing Gumroad product to point to a new content_url
+    Creates a NEW Gumroad product with external content URL.
+    This is the ONLY supported automation method by Gumroad.
     """
 
     if not GUMROAD_API_KEY:
-        raise Exception("GUMROAD_API_KEY missing")
+        raise GumroadError("GUMROAD_API_KEY is missing")
 
-    url = f"{GUMROAD_API_BASE}/products/{product_id}"
+    url = f"{GUMROAD_API_BASE}/products"
+
     payload = {
         "access_token": GUMROAD_API_KEY,
-        "content_url": content_url
+        "name": title,
+        "price": price,
+        "currency": currency,
+        "description": description or f"Digital download: {title}",
+        "content_url": content_url,
+        "published": True,
     }
 
-    response = requests.put(url, data=payload, timeout=30)
+    response = requests.post(url, data=payload, timeout=30)
 
     if response.status_code != 200:
-        raise Exception(f"Gumroad API error: {response.text}")
+        raise GumroadError(
+            f"Gumroad create failed [{response.status_code}]: {response.text}"
+        )
 
     data = response.json()
 
     if not data.get("success"):
-        raise Exception(f"Gumroad update failed: {data}")
+        raise GumroadError(f"Gumroad API error: {data}")
 
-    print("✅ Gumroad product updated successfully")
-    return data
+    product = data.get("product", {})
+    product_id = product.get("id")
+    short_url = product.get("short_url")
+
+    return {
+        "status": "success",
+        "product_id": product_id,
+        "url": short_url,
+    }
