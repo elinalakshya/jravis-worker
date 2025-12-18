@@ -11,8 +11,7 @@ API_BASE = "https://api.gumroad.com/v2"
 
 def update_gumroad_content_url(product_id: str, content_url: str):
     """
-    Updates the content_url of an EXISTING Gumroad product.
-    Product must already exist (created manually once).
+    Update content_url of an EXISTING Gumroad product
     """
 
     url = f"{API_BASE}/products/{product_id}"
