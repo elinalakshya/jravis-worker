@@ -1,43 +1,32 @@
-# ==========================================
-# GUMROAD ENGINE – CONTENT URL MODE
-# ==========================================
-
 import os
 import requests
 
+GUMROAD_API_KEY = os.getenv("GUMROAD_API_KEY")
+GUMROAD_API_BASE = "https://api.gumroad.com/v2"
 
-def update_gumroad_content_url(*, product_id: str, content_url: str):
+def update_gumroad_content_url(product_id: str, content_url: str):
     """
-    Updates the content_url of an existing Gumroad product
+    Updates an existing Gumroad product to point to a new content_url
     """
 
-    api_key = os.getenv("GUMROAD_API_KEY")
-    if not api_key:
-        raise RuntimeError("❌ GUMROAD_API_KEY not set")
+    if not GUMROAD_API_KEY:
+        raise Exception("GUMROAD_API_KEY missing")
 
-    if not product_id:
-        raise RuntimeError("❌ product_id missing")
-
-    if not content_url:
-        raise RuntimeError("❌ content_url missing")
-
-    url = f"https://api.gumroad.com/v2/products/{product_id}"
-    headers = {
-        "Authorization": f"Bearer {api_key}"
+    url = f"{GUMROAD_API_BASE}/products/{product_id}"
+    payload = {
+        "access_token": GUMROAD_API_KEY,
+        "content_url": content_url
     }
 
-    data = {
-        "product[content_url]": content_url
-    }
+    response = requests.put(url, data=payload, timeout=30)
 
-    print("🛒 Updating Gumroad product content_url")
-    print("🆔 Product ID:", product_id)
-    print("🔗 New content_url:", content_url)
+    if response.status_code != 200:
+        raise Exception(f"Gumroad API error: {response.text}")
 
-    r = requests.put(url, headers=headers, data=data, timeout=30)
+    data = response.json()
 
-    if not r.ok:
-        raise RuntimeError(f"❌ Gumroad update failed: {r.text}")
+    if not data.get("success"):
+        raise Exception(f"Gumroad update failed: {data}")
 
-    print("✅ Gumroad content_url updated successfully")
-    return r.json()
+    print("✅ Gumroad product updated successfully")
+    return data
