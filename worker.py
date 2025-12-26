@@ -1,3 +1,5 @@
+raise RuntimeError("Publishing worker disabled – DRAFT_ONLY MODE")
+
 # ===============================
 # JRAVIS WORKER – STREAM ZIP SAFE
 # ===============================
