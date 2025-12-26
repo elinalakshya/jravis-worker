@@ -1,0 +1,12 @@
+{
+  "mode": "DRAFT_ONLY",
+  "max_drafts_per_day": 1,
+  "font": "Montserrat",
+  "text_case": "UPPER",
+  "colors": {
+    "black_product": "white_text",
+    "white_product": "black_text"
+  },
+  "placement": "center",
+  "products": ["tshirt", "mug", "hoodie"]
+}
