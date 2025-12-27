@@ -2,4 +2,3 @@ requests
 python-dotenv
 boto3
 playwright==1.42.0
-greenlet==3.0.3
