@@ -1,8 +1,10 @@
-from playwright.sync_api import sync_playwright
-import json, datetime
+import asyncio
+import json
+import datetime
+from playwright.async_api import async_playwright
 from config.settings import ENABLE_PUBLISH
 
-def run_printify():
+async def run_printify_async():
     if ENABLE_PUBLISH:
         raise Exception("Publish not allowed")
 
@@ -11,22 +13,25 @@ def run_printify():
 
     text = texts[datetime.date.today().toordinal() % len(texts)]
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch_persistent_context(
+    async with async_playwright() as p:
+        browser = await p.chromium.launch_persistent_context(
             user_data_dir="printify-session",
             headless=False
         )
-        page = browser.new_page()
-        page.goto("https://printify.com/app", timeout=60000)
+        page = await browser.new_page()
 
-        page.click("text=Create product")
-        page.click("text=T-Shirt")
-        page.click("text=Start designing")
+        await page.goto("https://printify.com/app", timeout=60000)
+        await page.click("text=Create product")
+        await page.click("text=T-Shirt")
+        await page.click("text=Start designing")
 
-        page.click("text=Text")
-        page.fill("textarea", text)
+        await page.click("text=Text")
+        await page.fill("textarea", text)
 
-        page.click("text=Save")
+        await page.click("text=Save")
 
-        print("✅ Printify draft created")
-        browser.close()
+        print("✅ Printify draft created (ASYNC)")
+        await browser.close()
+
+def run_printify():
+    asyncio.run(run_printify_async())
